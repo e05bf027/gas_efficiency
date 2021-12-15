@@ -53,7 +53,7 @@ tidy_tibble_ID <- pivot_wider(untidy_tibble,
 rm(untidy_tibble)
 
 # Rejoin the cardiac data and arrange everything chronologically
-tidy_tibble_ID <- left_join(tidy_tibble, cardiac_rhythm, by = 'Time') %>%
+tidy_tibble_ID <- left_join(tidy_tibble_ID, cardiac_rhythm, by = 'Time') %>%
   arrange(Time)
 
 # Save a copy of this file
