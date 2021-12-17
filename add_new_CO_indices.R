@@ -5,6 +5,7 @@
 #   - CO
 #   - DO2 (uses CaO2 as per add_new_gas_indices.R)
 #   - SVR (uses above CO measure)
+#   - CVP (using SVR = (MAP - CVP)/CO * 80)
 #
 # ========================================================================
 
@@ -15,3 +16,6 @@
 
 
 # SVR
+
+
+# CVP
