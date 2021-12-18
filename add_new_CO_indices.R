@@ -1,4 +1,4 @@
-# add_new_CO_induces.R
+# add_new_CO_indices.R
 # ========================================================================
 # adds new indices of CV function based on the derivations resting on the
 # Liljestrand and Zander method for estimation of CO from arterial BP.
