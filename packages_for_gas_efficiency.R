@@ -2,6 +2,7 @@
 # loads packages needed for task of creating large tibbles of physiologic data
 
 library(readxl)
-library(dplyr)   
+library(tidyverse)   
 library(lubridate)
 library(writexl)
+library(reshape2)
