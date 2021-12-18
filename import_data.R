@@ -1,20 +1,15 @@
 # import_data.R
 # =============
-# imports patient-specific data to create wrangled data frame by
-# having the pathway to the file entered manually, loading the 
-# data, and then turning it into a large tidy tibble.
-#
-# BEFORE RUNNING THE CODE, CHECK THE DATABASE ID NUMBER THE PATIENT WILL
-# BE DESIGNATED, AND SUBSTITUTE IT INTO THE CODE BELOW AS APPROPRIATE
+# imports patient-specific data to create wrangled data and then 
+# turns it into a large tidy tibble.
 # =============
 
-
 # Enter the path to the file you want
-metavision_output <- as.character(XXX)
+metavision_file_specific <- mv_files[i]
 
 # reads file at that location. guess_max tells the command to look 1000000
 # rows into the file, and see what unit format suits best/fits them all
-untidy_tibble <- read_xlsx(metavision_output, guess_max = 1000000)
+untidy_tibble <- read_xlsx(metavision_file_specific, guess_max = 1000000)
 
 # now, isolate out only the columns for the parameter name, value, and time
 # that the value was recorded
@@ -50,13 +45,12 @@ tidy_tibble_ID <- pivot_wider(untidy_tibble,
                            names_from = `Parameter Name`, 
                            values_from = Value)
 
-rm(untidy_tibble)
-
 # Rejoin the cardiac data and arrange everything chronologically
 tidy_tibble_ID <- left_join(tidy_tibble_ID, cardiac_rhythm, by = 'Time') %>%
   arrange(Time)
 
-# Save a copy of this file
-write_xlsx(tidy_tibble_ID, "FILENAME_ID.xlsx")
+# Save a copy of this file (IS IT GOING TO THE RIGHT DESTINATION?)
+file_name <- sprintf('/Users/davidhannon/Documents/02. Medicine/Med_Programming/00. Patient DB/outputs/patient_00%d.xlsx', i)
+write_xlsx(tidy_tibble_ID, file_name)
 
 ### You now have a large, wide, tibble unique to that patient
