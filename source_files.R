@@ -10,4 +10,4 @@ mv_files <- list.files(mv_location, full.names = TRUE)
 view(mv_files)
 
 # choose which file you want to import and process
-i <- readline(as.numeric("enter the index of the file you want to import: "))
+i <- as.numeric(readline("enter the index of the file you want to import: "))
