@@ -2,9 +2,16 @@
 # loads packages needed for task of creating large tibbles of physiologic data
 
 library(readxl)
-library(tidyverse)   
+Sys.sleep(0.5)
+
+library(tidyverse)
+Sys.sleep(3)
+
 library(lubridate)
+Sys.sleep(03)
+
 library(writexl)
+Sys.sleep(0.5)
 
 library(googledrive)
-drive_find(n_max = 10) # prompts rstudio to confirm access to drive
+drive_find(n_max = 30) # prompts rstudio to confirm access to drive
