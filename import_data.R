@@ -50,7 +50,7 @@ tidy_tibble_ID <- left_join(tidy_tibble_ID, cardiac_rhythm, by = 'Time') %>%
   arrange(Time)
 
 # Save a copy of this file (IS IT GOING TO THE RIGHT DESTINATION?)
-file_name <- sprintf('/Users/davidhannon/Documents/02. Medicine/Med_Programming/00. Patient DB/outputs/patient_00%d.xlsx', i)
+file_name <- sprintf('/Users/davidhannon/Documents/02. Medicine/Med_Programming/00. Patient DB/outputs/wide/patient_00%d.xlsx', i)
 write_xlsx(tidy_tibble_ID, file_name)
 
 ### You now have a large, wide, tibble unique to that patient
