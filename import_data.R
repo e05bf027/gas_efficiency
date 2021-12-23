@@ -49,13 +49,3 @@ tidy_tibble <- pivot_wider(untidy_tibble,
 tidy_tibble <- left_join(tidy_tibble, cardiac_rhythm, by = 'Time') %>%
   arrange(Time)
 
-# Save a copy of this file
-file_name <- sprintf('/Users/davidhannon/Documents/02. Medicine/Med_Programming/00. Patient DB/outputs/wide/patient_00%d.xlsx', i)
-write_xlsx(tidy_tibble, file_name)
-
-# upload a copy to google drive
-# NB: 'drive_put' allows the file to either renew an existing file,
-# or placing a brand new file
-local_location <- file_name
-drive_location <- as_dribble('https://drive.google.com/drive/folders/1SnxmvqQnWsjr5jjSWFY5ht9FOpsi5fkg')
-drive_put(local_location, drive_location)

@@ -13,7 +13,7 @@
 
 
 # PF ratio
-
+PF_ratio <- 
 
 # Aa gradient
 

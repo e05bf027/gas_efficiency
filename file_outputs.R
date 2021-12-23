@@ -4,7 +4,8 @@
 # 2. google drive
 
 # Save a copy of the file
-file_name <- sprintf('/Users/davidhannon/Documents/02. Medicine/Med_Programming/00. Patient DB/outputs/wide/patient_00%d.xlsx', i)
+j <- as.integer(readline('What number do you wish to designate for this patient: '))
+file_name <- sprintf('/Users/davidhannon/Documents/02. Medicine/Med_Programming/00. Patient DB/outputs/wide/patient_00%d.xlsx', j)
 write_xlsx(tidy_tibble, file_name)
 
 # upload a copy to google drive
