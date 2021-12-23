@@ -1,0 +1,36 @@
+---
+title: "Thoughts on problems with original approach"
+author: "David M Hannon"
+date: "23/12/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Why does the ABG tibble not join to the larger tibble?
+
+This resembles a problem I had when trying my original split-apply-combine
+strategy. It seems that if a dataframe is 'too big', R doesn't like joining
+other things on to it.
+
+
+### Possible solutions
+
+1. **Fix at the source**
+   - involves setting up the Metavision filter more effectively. This is 
+   probably the most promising
+   
+2. **Assemble a new table to compute each measure/system**
+   - this involves making dataframes relating to CV, resp, etc and using these
+   smaller frames to compute with
+
+## Attempt 1
+
+- loaded in patient 02_PG
+   - using previously wrangled data (from which the ABG sheet was isolated)
+   - and current MV output (without ABG data that David will hopefully add)
+
+- next, attempt to join this to the main data frame
+
