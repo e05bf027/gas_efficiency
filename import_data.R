@@ -74,8 +74,6 @@ tidy_tibble$height <- patient_height
 # Tidy up ================================================================
 rm(cardiac_rhythm,
    untidy_tibble,
-   demo_df,
-   demo_file_location,
    mv_files,
    mv_location,
    metavision_file_specific,
