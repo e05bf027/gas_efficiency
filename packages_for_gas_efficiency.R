@@ -15,3 +15,7 @@ Sys.sleep(0.5)
 
 library(googledrive)
 drive_find(n_max = 30) # prompts rstudio to confirm access to drive
+
+# ================= NEXT SCRIPT ===================================
+
+source('source_files.R')
