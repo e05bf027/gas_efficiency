@@ -20,7 +20,6 @@ view(mv_files)
 
 # choose which file you want to import and process
 i <- as.numeric(readline("enter the index of the data file you want to import: "))
-demo_index <- i-1
 
 # also decide what number you wish to designate for this patient in the final database
 j <- as.character(readline('What number do you wish to designate for this patient: '))
