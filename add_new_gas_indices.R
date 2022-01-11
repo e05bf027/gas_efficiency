@@ -5,19 +5,17 @@
 #   - PF ratio
 #   - Aa gradient
 #   - CaO2 (total o2 in blood)
+#   - mechanical power delivered by ventilator (Gattinoni 2016)
 #
 # =========================================================================
-#
-# * these measures are derived using the Liljestrand and Zander method for
-# the estimation of CO from BP. It is not perfect!
 
 
-# PF ratio
-PF_ratio <- 
+# add PF ratio, aa gradient,  cao2
+tidy_tibble <- tidy_tibble %>% 
+  mutate(pf_ratio = pa_o2 / fi_o2,   # PF ratio
+         aa_gradient = ((fi_o2 * (101.3 - 6.3)) - (end_tidal_co2_marquette / 0.8)) - pa_o2, # aa gradient
+         cao2 = (1.34 * total_haemoglobin * (sa_o2_systemic/100)) + (0.0225 * pa_o2)
+         )
 
-# Aa gradient
-
-
-# CaO2
 
 
