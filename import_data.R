@@ -4,7 +4,8 @@
 # turns it into a large tidy tibble.
 # =============
 
-# Enter the path to the file you want
+# Enter the path to the file you want. Must reset mv_filkes to give full path
+mv_files <- list.files(mv_location, full.names = TRUE)
 metavision_file_specific <- mv_files[i] 
 
 # reads file at that location. guess_max tells the command to look 1000000
@@ -72,16 +73,36 @@ tidy_tibble$weight <- patient_weight
 tidy_tibble$height <- patient_height
 
 # Tidy up ================================================================
-rm(cardiac_rhythm,
-   untidy_tibble,
-   mv_files,
-   mv_location,
-   metavision_file_specific,
-   i,
-   patient_age,
-   patient_height,
-   admission,
-   birthday,
-   DOB)
+# checks if there was a height entered for the patient before deleting old
+# variables
+
+Sys.sleep(1)
+
+if (tidy_tibble$patient_height[1] > 0) {
+  rm(cardiac_rhythm,
+     untidy_tibble,
+     mv_files,
+     mv_location,
+     metavision_file_specific,
+     i,
+     patient_age,
+     patient_height,
+     patient_weight,
+     admission,
+     birthday,
+     DOB)
+} else {
+  rm(cardiac_rhythm,
+     untidy_tibble,
+     mv_files,
+     mv_location,
+     metavision_file_specific,
+     i,
+     patient_age,
+     patient_weight,
+     admission,
+     birthday,
+     DOB)
+}
 
 # Call next script =======================================================
