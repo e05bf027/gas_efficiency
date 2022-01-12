@@ -71,6 +71,7 @@ tidy_tibble <- left_join(tidy_tibble, cardiac_rhythm, by = 'Time') %>%
 tidy_tibble$age <- patient_age
 tidy_tibble$weight <- patient_weight
 tidy_tibble$height <- patient_height
+tidy_tibble$gender <- patient_gender
 
 # Tidy up ================================================================
 # checks if there was a height entered for the patient before deleting old
