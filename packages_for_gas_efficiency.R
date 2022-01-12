@@ -4,6 +4,9 @@
 library(readxl)
 Sys.sleep(0.5)
 
+library(janitor)
+Sys.sleep(0.5)
+
 library(tidyverse)
 Sys.sleep(3)
 
@@ -14,7 +17,7 @@ library(writexl)
 Sys.sleep(0.5)
 
 library(googledrive)
-drive_find(n_max = 30) # prompts rstudio to confirm access to drive
+drive_find(n_max = 5) # prompts rstudio to confirm access to drive
 
 # ================= NEXT SCRIPT ===================================
 
