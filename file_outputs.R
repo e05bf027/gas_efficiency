@@ -1,11 +1,12 @@
 # file_outputs.R
-# Script to output data after it has been wrangled. Outputs to:
-# 1. hard drive
-# 2. google drive
+# =================================
+# This script generates output from the wrangled df from the previous series of 
+# scripts. This output consists of:
+# 1. saving .xlsx of all data to disk
+# 2. generating a version of the file for Warwick and saving this to googledrive
 
 # Save a copy of the file
-j <- as.integer(readline('What number do you wish to designate for this patient: '))
-file_name <- sprintf('/Users/davidhannon/Documents/02. Medicine/Med_Programming/00. Patient DB/outputs/wide/patient_00%d.xlsx', j)
+write_xlsx(x = tidy_tibble, format_headers = T, path = file_name)
 write_xlsx(tidy_tibble, file_name)
 
 # upload a copy to google drive
