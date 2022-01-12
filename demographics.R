@@ -18,18 +18,19 @@ demo_df <- demo_df %>%
               names_from = parameter_name,
               values_from = value) %>% 
   clean_names()
+view(demo_df)
 
-# get inputs for height, weight
+# get inputs for height, weight, gender
 patient_height <- as.numeric(readline('Enter the patients height (cm): '))
 patient_weight <- as.numeric(readline('Enter the patients weight (kg): '))
+patient_gender <- as.character(readline('Enter the patients gender (M/F): '))
 
 # get DOB and admission date, then calculate patient age
 birthday <- dmy(readline('Enter the date of birth (DD-MM-YYYY): '))
 
-demo_df$admission_date
 admission_date <- ymd_hms(readline('Enter the admission date you wish to process (paste from console): '))
 
-patient_age <- as.integer(time_length(difftime(admission, birthday), "years"))
+patient_age <- as.integer(time_length(difftime(admission_date, birthday), "years"))
 
 # Tidy up
 rm(demo_file_location,
