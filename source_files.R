@@ -26,4 +26,4 @@ j <- as.character(readline('What number do you wish to designate for this patien
 file_name <- sprintf('/Users/davidhannon/Documents/02. Medicine/Med_Programming/00. Patient DB/outputs/wide/patient_0%s.xlsx', j)
 
 # run import script
-source('import_data.R')
+source('demographics.R')
