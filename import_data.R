@@ -11,7 +11,7 @@ metavision_file_specific <- mv_files[i]
 # reads file at that location. guess_max tells the command to look 1000000
 # rows into the file, and see what unit format suits best/fits them all
 untidy_tibble <- read_xlsx(metavision_file_specific, guess_max = 1000000) %>% 
-  filter(`Admission Date` == admission)
+  filter(`Admission Date` == admission_date)
 
 # now, isolate out only the columns for the parameter name, value, and time
 # that the value was recorded
@@ -79,7 +79,7 @@ tidy_tibble$gender <- patient_gender
 
 Sys.sleep(1)
 
-if (tidy_tibble$patient_height[1] > 0) {
+if (tidy_tibble$height[1] > 0) {
   rm(cardiac_rhythm,
      untidy_tibble,
      mv_files,
@@ -89,9 +89,7 @@ if (tidy_tibble$patient_height[1] > 0) {
      patient_age,
      patient_height,
      patient_weight,
-     admission,
-     birthday,
-     DOB)
+     admission_date)
 } else {
   rm(cardiac_rhythm,
      untidy_tibble,
@@ -101,9 +99,8 @@ if (tidy_tibble$patient_height[1] > 0) {
      i,
      patient_age,
      patient_weight,
-     admission,
-     birthday,
-     DOB)
+     admission_date)
 }
 
 # Call next script =======================================================
+source('coerce_datatypes.R')

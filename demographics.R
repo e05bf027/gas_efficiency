@@ -37,8 +37,7 @@ readline(prompt="CLOSE EXCEL, then press [enter] to continue")
 # Tidy up
 rm(demo_file_location,
    demo_df,
-   birthday,
-   admission_date)
+   birthday)
 
 # ======= CALL NEXT SCRIPT =========
 source('import_data.R')
