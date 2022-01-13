@@ -20,20 +20,25 @@ demo_df <- demo_df %>%
   clean_names()
 view(demo_df)
 
+# get DOB and admission date, then calculate patient age
+birthday <- dmy(readline('Enter the date of birth (DD-MM-YYYY): '))
+admission_date <- ymd_hms(readline('Enter the admission date you wish to process (paste from console): '))
+patient_age <- as.integer(time_length(difftime(admission_date, birthday), "years"))
+
 # get inputs for height, weight, gender
 patient_height <- as.numeric(readline('Enter the patients height (cm): '))
 patient_weight <- as.numeric(readline('Enter the patients weight (kg): '))
 patient_gender <- as.character(readline('Enter the patients gender (M/F): '))
 
-# get DOB and admission date, then calculate patient age
-birthday <- dmy(readline('Enter the date of birth (DD-MM-YYYY): '))
-
-admission_date <- ymd_hms(readline('Enter the admission date you wish to process (paste from console): '))
-
-patient_age <- as.integer(time_length(difftime(admission_date, birthday), "years"))
+# wait for user to CLOSE EXCEL before hitting enter (if Excel is open it will
+# cause the total file number to change which creates problems in the next script)
+readline(prompt="CLOSE EXCEL, then press [enter] to continue")
 
 # Tidy up
 rm(demo_file_location,
    demo_df,
    birthday,
    admission_date)
+
+# ======= CALL NEXT SCRIPT =========
+source('import_data.R')
