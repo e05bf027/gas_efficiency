@@ -14,7 +14,8 @@ output:
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-# Rationale for wrangling
+# Wrangling data
+## Rationale for wrangling
 
 The data for wrangling before analysis can proceed comes from the Metavision Query Wizard. The filter to generate the output collects essentially all data available. The data is then output as a large, 'untidy' .xls file. In other words, a single column lists all captured parameters and an adjacent column lists the corresponding value.
 
@@ -59,7 +60,7 @@ The following steps are identified, and scripts written to accommodate the steps
 
 -   The addition of cardiac outpout values here by the Liljestrand and Zander method (see Koenig 2015 and Sun 2005) could be explored here, but the difficulty in performing further cardiovascular calculations is that we do not know how much vasopressor medication the patient is being infused with (see add_new_CO_indices.R). The accessible Metavision server only stores **if** an infusion is running, but **not the rate**. Therefore, the only way to access this data is to manually enter it by transcribing it from Metavision.
 
-**7. BMI** BMI_processing.R
+**7. BMI** (BMI_processing.R)
 
 -   This script calculates the patients BMI after checking if a height and weight has been recorded for the patient. If no height is recorded, the column is created but populated with NAs.
 
@@ -88,9 +89,10 @@ This represents my approach to wrangling the data. I have now designed a filter 
 Loads packages needed for task of creating large tibbles of physiologic data.
 
 ```{r load packages, echo = T, eval = FALSE}
+
 # sleep commands used to troubleshoot seeming issue where Rstudio seemed to move on to a new command before the previous had finished.
 library(readxl)
-Sys.sleep(0.5) 
+Sys.sleep(0.5)
 
 library(janitor)
 Sys.sleep(0.5)
@@ -106,6 +108,7 @@ Sys.sleep(0.5)
 
 library(googledrive)
 drive_find(n_max = 5) # prompts rstudio to confirm access to drive
+
 ```
 
 2. `source_files.R`
@@ -113,6 +116,7 @@ drive_find(n_max = 5) # prompts rstudio to confirm access to drive
 Lists all input files in the relevant directory, and asks for your selection (which it names 'i'). 'i' will then be used in other scripts.
 
 ```{r designate file source, echo = T, eval = FALSE}
+
 # warning to ensure files are pre-processed
 print('The .xls files that are generated from the Metavisiion Query wizard')
 print('require pre-processing. Have you:')
@@ -124,7 +128,7 @@ print('====================================================================')
 
 # List of raw input files
 mv_location <- "/Users/davidhannon/Documents/02. Medicine/Med_Programming/00. Patient DB/metavision_outputs"
-mv_files <- list.files(mv_location)
+mv_files <- list.files(mv_location, full.names = TRUE)
 view(mv_files)
 
 # choose which file you want to import and process
@@ -133,6 +137,7 @@ i <- as.numeric(readline("enter the index of the data file you want to import: "
 # also decide what number you wish to designate for this patient in the final database
 j <- as.character(readline('What number do you wish to designate for this patient: '))
 file_name <- sprintf('/Users/davidhannon/Documents/02. Medicine/Med_Programming/00. Patient DB/outputs/wide/patient_0%s.xlsx', j)
+
 ```
 
 3. `demographics.R`
@@ -140,8 +145,6 @@ file_name <- sprintf('/Users/davidhannon/Documents/02. Medicine/Med_Programming/
 This script reads and imports the demographics data for the selected patient. It also asks the user to select which admission date they wish to read in.
 
 ```{r enter demographic details, echo = T, eval = FALSE}
-# re-interrogate the file location and get the full paths
-mv_files <- list.files(mv_location, full.names = TRUE)
 
 # Enter the path to the demographics file and import it
 demo_file_location <- mv_files[i-1]
@@ -157,17 +160,25 @@ demo_df <- demo_df %>%
   clean_names()
 view(demo_df)
 
+# get DOB and admission date, then calculate patient age
+birthday <- dmy(readline('Enter the date of birth (DD-MM-YYYY): '))
+admission_date <- ymd_hms(readline('Enter the admission date you wish to process (paste from console): '))
+patient_age <- as.integer(time_length(difftime(admission_date, birthday), "years"))
+
 # get inputs for height, weight, gender
 patient_height <- as.numeric(readline('Enter the patients height (cm): '))
 patient_weight <- as.numeric(readline('Enter the patients weight (kg): '))
 patient_gender <- as.character(readline('Enter the patients gender (M/F): '))
 
-# get DOB and admission date, then calculate patient age
-birthday <- dmy(readline('Enter the date of birth (DD-MM-YYYY): '))
+# wait for user to CLOSE EXCEL before hitting enter (if Excel is open it will
+# cause the total file number to change which creates problems in the next script)
+readline(prompt="CLOSE EXCEL, then press [enter] to continue")
 
-admission_date <- ymd_hms(readline('Enter the admission date you wish to process (paste from console): '))
+# Tidy up
+rm(demo_file_location,
+   demo_df,
+   birthday)
 
-patient_age <- as.integer(time_length(difftime(admission_date, birthday), "years"))
 ```
 
 4. `import_data.R`
@@ -175,14 +186,14 @@ patient_age <- as.integer(time_length(difftime(admission_date, birthday), "years
 Imports patient-specific data to create wrangled data and thenturns it into a large tidy tibble.
 
 ```{r import data and pivot wider, echo = T, eval = FALSE}
-# Enter the path to the file you want. Must reset mv_filkes to give full path
-mv_files <- list.files(mv_location, full.names = TRUE)
+
+# Enter the path to the file you want. Must reset mv_files to give full path
 metavision_file_specific <- mv_files[i] 
 
 # reads file at that location. guess_max tells the command to look 1000000
 # rows into the file, and see what unit format suits best/fits them all
 untidy_tibble <- read_xlsx(metavision_file_specific, guess_max = 1000000) %>% 
-  filter(`Admission Date` == admission)
+  filter(`Admission Date` == admission_date)
 
 # now, isolate out only the columns for the parameter name, value, and time
 # that the value was recorded
@@ -221,10 +232,6 @@ cardiac_rhythm <- pivot_wider(cardiac_rhythm,
 cardiac_rhythm$Cardiac_rhythm <- sapply(cardiac_rhythm$`Cardiac Rhythm`, toString)
 cardiac_rhythm <- select(cardiac_rhythm, Time, Cardiac_rhythm)
 
-# This same process must be repeated for other character vectors that might be
-# coerced to lists
-
-
 ### PIVOT THE UNTIDY TIBBLE INTO WIDE FORMAT and remove the untidy tibble
 ### replace INIT with the study ID number
 tidy_tibble <- pivot_wider(untidy_tibble, 
@@ -244,6 +251,39 @@ tidy_tibble$weight <- patient_weight
 tidy_tibble$height <- patient_height
 tidy_tibble$gender <- patient_gender
 
+# finally, add a unique identifier for each observation (using datetime objects)
+# introduces issues in further scripts
+tidy_tibble$observation <- 1:nrow(tidy_tibble)
+
+# Tidy up ================================================================
+# checks if there was a height entered for the patient before deleting old
+# variables
+
+Sys.sleep(1)
+
+if (tidy_tibble$height[1] > 0) {
+  rm(cardiac_rhythm,
+     untidy_tibble,
+     mv_files,
+     mv_location,
+     metavision_file_specific,
+     i,
+     patient_age,
+     patient_height,
+     patient_weight,
+     admission_date)
+} else {
+  rm(cardiac_rhythm,
+     untidy_tibble,
+     mv_files,
+     mv_location,
+     metavision_file_specific,
+     i,
+     patient_age,
+     patient_weight,
+     admission_date)
+}
+
 ```
 
 5. `coerce_datatypes.R`
@@ -252,45 +292,62 @@ This script splits the wide dataframe into two. One will remain in character for
 
 ```{r coerce data, echo = T, eval = FALSE}
 
-#===================== COERCE TO NUMERIC ==================================
+# ================= CREATE VECTOR OF VENTILATOR PARAMETERS ================
 
-# select columns that will become numeric
-tidy_tibble_coerce <- tidy_tibble %>% 
-  select(-airvo_mode,
-         -cardiac_rhythm,
-         -gcs_manual_entry,
-         -patient_positioning,
-         -patient_positioning_abg,
-         -pb_mode_of_ventilation,
-         -servo_i_modes,
-         -set_i_e_ratio_pb,
-         -summary)
+pb_char <- c('pb_mandatory_mode_type',
+             'pb_mode_of_ventilation',
+             'pb_spontaneous_type',
+             'pb_vent_type',
+             'pb_ventilation_mode',
+             'set_i_e_ratio_pb',
+             'trigger_type_setting')
 
-# use sapply to coerce remaining columns to numeric
-col_coerce <- ncol(tidy_tibble_coerce)
-tidy_tibble_coerce <-  as_tibble(sapply(tidy_tibble_coerce[, 1:col_coerce],
+niv_char <- c('airvo_mode',
+              'respironics_mode')
+
+# ================= CREATE VECTOR OF STANDARD PARAMETERS ==================
+
+constant_char <- c('time',
+                   'gender',
+                   'cardiac_rhythm',
+                   'gcs_manual_entry',
+                   'patient_positioning',
+                   'patient_positioning_abg',
+                   'summary')
+
+coerce_char <- c(constant_char, pb_char, niv_char) 
+# all variables that might need coercion
+rm(constant_char, pb_char, niv_char)
+
+# ==================== COERCE TO NUMERIC ==================================
+
+# create vector of variable names that will be coerced to character, and 
+# initialise df
+tidy_tibble_char <- select(.data = tidy_tibble, observation)
+variables_present <- 'observation'
+
+# select columns that will become character
+for (y in 1:length(coerce_char)) {
+  if (coerce_char[y] %in% colnames(tidy_tibble)) {
+    tidy_tibble_char <-  left_join(tidy_tibble_char,
+                                   tidy_tibble[, c('observation', coerce_char[y])],
+                                   by = 'observation')
+    variables_present <- c(variables_present, coerce_char[y])
+  }
+}
+
+# remove these columns from the main df (but keep 'observation' for later joining)
+tidy_tibble <- select(tidy_tibble, -variables_present, observation)
+
+# use sapply to coerce remaining columns to numeric, then rejoin
+tidy_tibble_nums <-  as_tibble(sapply(tidy_tibble[, 1:ncol(tidy_tibble)],
                                         as.numeric))
 
-# fix coercion of 'time' by resetting to POSIXct
-tidy_tibble_coerce$time <- as.POSIXct(tidy_tibble_coerce$time,
-                                      tz = 'UTC',
-                                      origin = "1970-01-01")
+# reform tidy_)tibble by joining the coerced and character dfs
+tidy_tibble <-  full_join(tidy_tibble_char, tidy_tibble_nums, by = 'observation')
 
-#===================== SEPARATE CHR AND REJOIN ==============================
-
-tidy_tibble_chr <- tidy_tibble %>% 
-  select(time,
-         airvo_mode,
-         cardiac_rhythm,
-         gcs_manual_entry,
-         patient_positioning,
-         patient_positioning_abg,
-         pb_mode_of_ventilation,
-         servo_i_modes,
-         set_i_e_ratio_pb,
-         summary) %>% 
-  full_join(tidy_tibble_coerce,
-            by = 'time')
+# tidy up
+rm(coerce_char, variables_present, tidy_tibble_char, tidy_tibble_nums)
 
 ```
 
@@ -304,10 +361,19 @@ Calculates new measures of pulmonary function and adds them to the large patient
    
 ```{r basic calculation on ventilation indices, echo = T, eval = FALSE}
 
+# add PF ratio, aa gradient,  cao2
 tidy_tibble <- tidy_tibble %>% 
-  mutate(pf_ratio = pa_o2 / fi_o2,   # PF ratio
-         aa_gradient = ((fi_o2 * (101.3 - 6.3)) - (end_tidal_co2_marquette / 0.8)) - pa_o2, # aa gradient
+  mutate(pf_ratio = pa_o2 / fi_o2,
+         aa_gradient = ((fi_o2 * (101.3 - 6.3)) - (end_tidal_co2_marquette / 0.8)) - pa_o2,
          cao2 = (1.34 * total_haemoglobin * (sa_o2_systemic/100)) + (0.0225 * pa_o2))
+
+# the calculation of mechanical power (Giosa 2019)
+# 'equation of mechanical power for volume-controlled ventilation 
+tidy_tibble <- tidy_tibble %>% 
+  mutate(mech_power = 
+           (minute_volume_pb *
+              (peak_inspiratory_pressure_measured_pb * peep * (peak_flow_vmax_pb / 6)) / 
+              20))
 
 ```
 
@@ -318,11 +384,11 @@ This script calculates the BMI of the patient if their height and weight is avai
 ```{r BMI, echo = T, eval = FALSE}
 
 if (!is.na(tidy_tibble$height[1])) {
-  mutate(tidy_tibble, 
-         BMI = weight / height^2,
+  tidy_tibble <- mutate(tidy_tibble, 
+         BMI = weight / ((height/100)^2),
          height_recorded = TRUE)
 } else {
-  mutate(tidy_tibble,
+  tidy_tibble <- mutate(tidy_tibble,
          BMI = NA,
          height_recorded = FALSE)
 }
@@ -335,16 +401,20 @@ This script takes the wide tidy_tibble and divides it into smaller tibbles that 
 
 ```{r, echo = T, eval = FALSE}
 
+# Create subtibbles
 # 1. demographics
 demo_tibble <- tidy_tibble %>% 
   select(age,
          gender,
-         weight)
+         weight,
+         height_recorded,
+         BMI)
 
 if (!is.na(tidy_tibble$height[1])) {
   demo_tibble$height <- tidy_tibble$height
-  demo_tibble$BMI <- tidy_tibble$BMI
 }
+
+demo_tibble <- demo_tibble[1,]
 
 # 2. ABG
 ABG_tibble <- tidy_tibble %>% 
@@ -365,29 +435,36 @@ ABG_tibble <- tidy_tibble %>%
          tympanic_temperature)
 
 # 3. ventilator
-vent_tibble <- tidy_tibble %>% 
-  select(time,
-         patient_positioning,
-         fi_o2,
-         set_fraction_inspired_oxygen_pb,
-         end_tidal_co2_marquette,
-         pb_mode_of_ventilation,
-         set_respiratory_rate_pb,
-         set_tv_pb,
-         set_peep_pb,
-         peep,
-         set_i_e_ratio_pb,
-         minute_volume_pb,
-         measured_fi02_pb,
-         measured_peep_pb,
-         total_respiratory_rate_pb,
-         expiratory_tidal_volume_pb,
-         peak_inspiratory_pressure_measured_pb,
-         plateau_airway_pressure_pb,
-         mean_airway_pressure_pb,
-         peak_inspiratory_pressure_measured_pb,
-         dynamic_characteristics_pb,
-  )
+pb_variables <- c('time',
+                  'patient_positioning',
+                  'fi_o2',
+                  'set_fraction_inspired_oxygen_pb',
+                  'end_tidal_co2_marquette',
+                  'pb_mode_of_ventilation',
+                  'set_respiratory_rate_pb',
+                  'set_tv_pb',
+                  'set_peep_pb',
+                  'peep',
+                  'set_i_e_ratio_pb',
+                  'minute_volume_pb',
+                  'measured_fi02_pb',
+                  'measured_peep_pb',
+                  'total_respiratory_rate_pb',
+                  'expiratory_tidal_volume_pb',
+                  'peak_inspiratory_pressure_measured_pb',
+                  'plateau_airway_pressure_pb',
+                  'mean_airway_pressure_pb',
+                  'peak_inspiratory_pressure_measured_pb',
+                  'dynamic_characteristics_pb')
+
+vent_tibble <- tibble(observation = tidy_tibble$observation)
+for (k in 1:length(pb_variables)) {
+  if (pb_variables[k] %in% colnames(tidy_tibble)) {
+    vent_tibble <- left_join(vent_tibble, 
+              tidy_tibble[, c('observation', pb_variables[k])],
+              by = 'observation')
+  }
+}
 
 # 4. Cardiovascular
 # The initial columns always exist, after that we must check if cardiac output
@@ -412,7 +489,7 @@ adv_co <- c('central_venous_pressure',
             'stroke_volume_variation_vigileo',
             'systemic_vascular_resistance_vigileo')
 
-for (z in length(adv_co)) {
+for (z in 1:length(adv_co)) {
   if (adv_co[z] %in% colnames(tidy_tibble)) {
     left_join(cardio_tibble, 
               tidy_tibble[, c('time', adv_co[z])],
@@ -431,6 +508,18 @@ output_sheets <- list(demographics = demo_tibble,
                       Cardiovascular = cardio_tibble,
                       All_recorded = all_data)
 
+# tidy up
+rm(demo_tibble,
+   ABG_tibble,
+   pb_variables,
+   vent_tibble,
+   cardio_tibble,
+   adv_co,
+   k,
+   j,
+   y,
+   z)
+
 ```
 
 9. `file_outputs.R`
@@ -441,6 +530,7 @@ This script generates output from the wrangled df from the previous series of sc
 2. generating a version of the file for Warwick and saving this to googledrive
 
 ```{r save xlsx, echo = T, eval = FALSE}
+
 # Save a copy of the file
 write_xlsx(x = tidy_tibble, format_headers = T, path = file_name)
 write_xlsx(tidy_tibble, file_name)
@@ -451,5 +541,6 @@ write_xlsx(tidy_tibble, file_name)
 local_location <- file_name
 drive_location <- as_dribble('https://drive.google.com/drive/folders/1SnxmvqQnWsjr5jjSWFY5ht9FOpsi5fkg')
 drive_put(local_location, drive_location)
+
 ```
 
