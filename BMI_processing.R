@@ -5,13 +5,14 @@
 # original dataset.
 
 if (!is.na(tidy_tibble$height[1])) {
-  mutate(tidy_tibble, 
-         BMI = weight / height^2,
+  tidy_tibble <- mutate(tidy_tibble, 
+         BMI = weight / ((height/100)^2),
          height_recorded = TRUE)
 } else {
-  mutate(tidy_tibble,
+  tidy_tibble <- mutate(tidy_tibble,
          BMI = NA,
          height_recorded = FALSE)
 }
 
 #====== NEXT SCRIPT ==========
+source('create_subtibbles.R')
