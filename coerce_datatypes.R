@@ -20,6 +20,7 @@ niv_char <- c('airvo_mode',
 # ================= CREATE VECTOR OF STANDARD PARAMETERS ==================
 
 constant_char <- c('time',
+                   'gender',
                    'cardiac_rhythm',
                    'gcs_manual_entry',
                    'patient_positioning',
