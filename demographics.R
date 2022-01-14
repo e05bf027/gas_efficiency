@@ -3,9 +3,6 @@
 # this script reads and imports the demographics data for the selected patient.
 # it also asks the user to select which admission date they wish to read in.
 
-# re-interrogate the file location and get the full paths
-mv_files <- list.files(mv_location, full.names = TRUE)
-
 # Enter the path to the demographics file and import it
 demo_file_location <- mv_files[i-1]
 demo_df <- read_xlsx(demo_file_location, guess_max = 1000000) %>% 
