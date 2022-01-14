@@ -15,7 +15,7 @@ print('====================================================================')
 
 # List of raw input files
 mv_location <- "/Users/davidhannon/Documents/02. Medicine/Med_Programming/00. Patient DB/metavision_outputs"
-mv_files <- list.files(mv_location)
+mv_files <- list.files(mv_location, full.names = TRUE)
 view(mv_files)
 
 # choose which file you want to import and process
