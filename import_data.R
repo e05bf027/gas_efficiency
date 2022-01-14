@@ -4,8 +4,7 @@
 # turns it into a large tidy tibble.
 # =============
 
-# Enter the path to the file you want. Must reset mv_filkes to give full path
-mv_files <- list.files(mv_location, full.names = TRUE)
+# Enter the path to the file you want. Must reset mv_files to give full path
 metavision_file_specific <- mv_files[i] 
 
 # reads file at that location. guess_max tells the command to look 1000000
@@ -49,10 +48,6 @@ cardiac_rhythm <- pivot_wider(cardiac_rhythm,
 
 cardiac_rhythm$Cardiac_rhythm <- sapply(cardiac_rhythm$`Cardiac Rhythm`, toString)
 cardiac_rhythm <- select(cardiac_rhythm, Time, Cardiac_rhythm)
-
-# This same process must be repeated for other character vectors that might be
-# coerced to lists
-
 
 ### PIVOT THE UNTIDY TIBBLE INTO WIDE FORMAT and remove the untidy tibble
 ### replace INIT with the study ID number
