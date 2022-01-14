@@ -6,7 +6,7 @@ This project outlines the processing and investigation of data generated from cr
 
 The initial phase involves generating output from a tool that can be set to query the recorded data relating to a patient who has been cared for in the ICU of the hospital in question. The electronic record system used in the ICU of interest is Metavision by iMDSoft.
 
-### Data wrangling 
+### Data wrangling
 
 Data stored within Metavision can be queried using the Metavision Query Wizard, a front-end tool. The queries have some limitations, but the majority of recorded data is accessible. The output generated is in an 'untidy' format (Wickham 2015). The first step of analysis must therefore involve a sequence of steps that can render the data to a tidy format that can undergo further analysis.
 
@@ -18,6 +18,7 @@ The following steps are identified, and scripts written to accommodate the steps
 
 **1. Load necessary packages** (packages_for_gas_efficiency.R)
 
+-   *this script should be run at the start of each session*
 -   including `readxl`, `janitor`, `tidyverse`, `lubridate`, `writexl`
 -   the `googledrive` package allows outputs to be uploaded to Google Drive
 
@@ -59,13 +60,13 @@ The following steps are identified, and scripts written to accommodate the steps
 
 **8. Divide the data into groups** create_subtibbles.R
 
-- This script isolates certain specific groups of variables and places the dfs in a list that can be later used to populate sheets in a .xlsx output
+-   This script isolates certain specific groups of variables and places the dfs in a list that can be later used to populate sheets in a .xlsx output
 
-- Future work will need to incorporate a step where the user specifies which ventilator the patient was using when undergoing invasive ventilation. For the Covid-19 patients this is always the Puritan Bennett model by Medtronic, but if patients before this time period are added, there are seversal other ventilators in use.
+-   Future work will need to incorporate a step where the user specifies which ventilator the patient was using when undergoing invasive ventilation. For the Covid-19 patients this is always the Puritan Bennett model by Medtronic, but if patients before this time period are added, there are seversal other ventilators in use.
 
 **9. Save output .xlsx files** file_outputs.R
 
-- This script saves the anonymised wrangled data as a .xlsx file to the hard drive, and also uploads a copy to google drive.
+-   This script saves the anonymised wrangled data as a .xlsx file to the hard drive, and also uploads a copy to google drive.
 
 This represents my approach to wrangling the data. I have now designed a filter for the Metavision Query Wizard output that captures essentially any data we have available, with the following notable features:
 
