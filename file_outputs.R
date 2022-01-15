@@ -7,7 +7,6 @@
 
 # Save a copy of the file
 write_xlsx(x = output_sheets, format_headers = T, path = file_name)
-file_name
 
 # upload a copy to google drive
 # NB: 'drive_put' allows the file to either renew an existing file,
@@ -21,5 +20,3 @@ rm(all_data,
    output_sheets, 
    drive_location,
    local_location)
-
-
