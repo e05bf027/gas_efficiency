@@ -6,8 +6,8 @@
 # 2. generating a version of the file for Warwick and saving this to googledrive
 
 # Save a copy of the file
-write_xlsx(x = tidy_tibble, format_headers = T, path = file_name)
-write_xlsx(tidy_tibble, file_name)
+write_xlsx(x = output_sheets, format_headers = T, path = file_name)
+file_name
 
 # upload a copy to google drive
 # NB: 'drive_put' allows the file to either renew an existing file,
@@ -15,3 +15,11 @@ write_xlsx(tidy_tibble, file_name)
 local_location <- file_name
 drive_location <- as_dribble('https://drive.google.com/drive/folders/1SnxmvqQnWsjr5jjSWFY5ht9FOpsi5fkg')
 drive_put(local_location, drive_location)
+
+# tidy
+rm(all_data, 
+   output_sheets, 
+   drive_location,
+   local_location)
+
+
