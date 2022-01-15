@@ -88,7 +88,8 @@ if (tidy_tibble$height[1] > 0) {
      patient_age,
      patient_height,
      patient_weight,
-     admission_date)
+     admission_date,
+     patient_gender)
 } else {
   rm(cardiac_rhythm,
      untidy_tibble,
@@ -98,7 +99,8 @@ if (tidy_tibble$height[1] > 0) {
      i,
      patient_age,
      patient_weight,
-     admission_date)
+     admission_date,
+     patient_gender)
 }
 
 # Call next script =======================================================
