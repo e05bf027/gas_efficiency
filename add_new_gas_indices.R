@@ -18,11 +18,12 @@ tidy_tibble <- tidy_tibble %>%
 
 # the calculation of mechanical power (Giosa 2019)
 # 'equation of mechanical power for volume-controlled ventilation 
-tidy_tibble <- tidy_tibble %>% 
-  mutate(mech_power = 
-           (minute_volume_pb *
-              (peak_inspiratory_pressure_measured_pb * peep * (peak_flow_vmax_pb / 6)) / 
-              20))
+#
+# tidy_tibble <- tidy_tibble %>% 
+#   mutate(mech_power = 
+#            (minute_volume_pb *
+#               (peak_inspiratory_pressure_measured_pb * peep * (peak_flow_vmax_pb / 6)) / 
+#               20))
 
 # ==== next script ======
 source('BMI_processing.R')
