@@ -123,4 +123,4 @@ rm(demo_tibble,
    z)
 
 # next script
-spource('file_outputs.R')
+source('file_outputs.R')
