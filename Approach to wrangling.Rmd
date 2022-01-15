@@ -271,7 +271,8 @@ if (tidy_tibble$height[1] > 0) {
      patient_age,
      patient_height,
      patient_weight,
-     admission_date)
+     admission_date,
+     patient_gender)
 } else {
   rm(cardiac_rhythm,
      untidy_tibble,
@@ -281,7 +282,8 @@ if (tidy_tibble$height[1] > 0) {
      i,
      patient_age,
      patient_weight,
-     admission_date)
+     admission_date,
+     patient_gender)
 }
 
 ```
@@ -532,8 +534,7 @@ This script generates output from the wrangled df from the previous series of sc
 ```{r save xlsx, echo = T, eval = FALSE}
 
 # Save a copy of the file
-write_xlsx(x = tidy_tibble, format_headers = T, path = file_name)
-write_xlsx(tidy_tibble, file_name)
+write_xlsx(x = output_sheets, format_headers = T, path = file_name)
 
 # upload a copy to google drive
 # NB: 'drive_put' allows the file to either renew an existing file,
@@ -541,6 +542,12 @@ write_xlsx(tidy_tibble, file_name)
 local_location <- file_name
 drive_location <- as_dribble('https://drive.google.com/drive/folders/1SnxmvqQnWsjr5jjSWFY5ht9FOpsi5fkg')
 drive_put(local_location, drive_location)
+
+# tidy
+rm(all_data, 
+   output_sheets, 
+   drive_location,
+   local_location)
 
 ```
 
