@@ -24,7 +24,7 @@ giosa_mv_vars <- c('minute_volume_pb',
                    'peep',
                    'peak_flow_vmax_pb')
 
-if (giosa_mv_vars %in% colnames(tidy_tibble)) {
+if (sum(giosa_mv_vars %in% colnames(tidy_tibble) == 4)) { # checks if all 4 present
   mutate(mech_power = 
           (minute_volume_pb *
           (peak_inspiratory_pressure_measured_pb * peep * (peak_flow_vmax_pb / 6)) / 
