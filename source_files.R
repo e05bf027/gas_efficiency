@@ -23,7 +23,7 @@ i <- as.numeric(readline("enter the index of the data file you want to import: "
 
 # also decide what number you wish to designate for this patient in the final database
 j <- as.character(readline('What number do you wish to designate for this patient: '))
-file_name <- sprintf('/Users/davidhannon/Documents/02. Medicine/Med_Programming/00. Patient DB/outputs/wide/patient_0%s.xlsx', j)
+file_name <- sprintf('/Users/davidhannon/Documents/02. Medicine/Med_Programming/00. Patient DB/outputs/patient_0%s.xlsx', j)
 
 # ============ CALL NEXT SCRIPT =============
 source('demographics.R')

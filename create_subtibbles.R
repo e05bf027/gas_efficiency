@@ -118,7 +118,6 @@ rm(demo_tibble,
    cardio_tibble,
    adv_co,
    k,
-   j,
    y,
    z)
 
