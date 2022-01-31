@@ -31,7 +31,7 @@ if (sum(giosa_mv_vars %in% colnames(tidy_tibble) == 4)) { # checks if all 4 pres
           (peak_inspiratory_pressure_measured_pb * peep * (peak_flow_vmax_pb / 6)) / 
           20))
 }
-
+# the problem here is that peak flow often simply records as '0', thus rendering the calculation useless
 
 # ==== next script ======
 source('BMI_processing.R')
