@@ -22,6 +22,7 @@ demo_tibble <- demo_tibble[1,]
 ABG_tibble <- tidy_tibble %>% 
   select(time,
          patient_positioning,
+         patient_positioning_abg,
          ph_abg,
          pa_o2,
          pa_co2,
@@ -34,7 +35,9 @@ ABG_tibble <- tidy_tibble %>%
          glucose_abg,
          total_haemoglobin,
          fi_o2,
-         tympanic_temperature)
+         tympanic_temperature,
+         sa_o2_systemic,
+         sp_o2)
 
 # 3. ventilator
 pb_variables <- c('time',
@@ -57,7 +60,13 @@ pb_variables <- c('time',
                   'plateau_airway_pressure_pb',
                   'mean_airway_pressure_pb',
                   'peak_inspiratory_pressure_measured_pb',
-                  'dynamic_characteristics_pb')
+                  'dynamic_characteristics_pb',
+                  'pb_mandatory_mode_type',
+                  'pb_spontaneous_type',
+                  'pb_vent_type',
+                  'pb_ventilation_mode',
+                  'set_i_of_i_e_ratio',
+                  'set_eof_i_e_ratio')
 
 vent_tibble <- tibble(observation = tidy_tibble$observation)
 for (k in 1:length(pb_variables)) {
