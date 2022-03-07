@@ -1,0 +1,102 @@
+---
+title: "Metavision data and prone positioning"
+author: "David M Hannon"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    number_sections: false
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+## Introduction
+
+This document outlines the exploration of data from the Metavision Electronic Medical Record (EMR) in University Hospital Galway (UHG). The data comes from patients who were: 
+
+- diagnosed with Covid-19
+- admitted to the Intensive Care Unit (ICU) of UHG during the period 20/03/2020 - 22/09/2021
+- underwent invasive ventilation
+- were subject to the prone position while ventilated
+
+The exploration requires `tidyverse`, `lubridate`, `readxl`, and `janitor` packages.
+
+```{r packages, include=FALSE}
+library(tidyverse)
+library(lubridate)
+library(readxl)
+library(janitor)
+```
+
+### Data gathering
+
+The data is gathered using the 'Metavision Query Wizard'. The query designed for this particular purpose captures all verified data on the system in the areas of:
+
+- patient positioning
+- ventilator settings
+- cardiovascular measurements
+- arterial blood gas values
+- haematology blood tests
+- biochemical blood tests
+
+#### 'Verified' data
+
+The Query Wizard can select data from the servers along two key lines. That is, whether the data is 'verified' or 'not verified'. 'Verified' data is data that has been approved by a source outside the Metavision system. For most cardiovascular parameters, the nurse at the patient bedside approves a set of readings every hour that are accurate. They also manually enter the ABG data (the point-of-care analysers are not connected to Metavision but can be sourced). Other blood tests are integrated directly into Metavision, having been verified in the hospital laboratory.
+
+Only cardiovascular data seems available in the 'unverified' form. This data is recorded once per minute. The Metavision Query Wizard crashes if one tries to access this data as it attempts to retrieve tens of thousands of pieces of data. It **can** be accessed through SQL queries, but overall this approach is hugely problematic for reasons that will not be covered here.
+
+### Data wrangling
+
+The Query Wizard outputs data as a _.xls_ file that is in an unwieldy format and is not conducive to data analysis. The initial phase of processing is to pass this _.xls_ file through a series of scripts that turn the records of each individual patient into a time-series. This processed data obeys the principles of 'tidy data' (Wickham 2014).
+
+The scripts involved in this phase are described in the document _Approach to wrangling.html_.
+
+## The proning data frame
+
+### Basic assembly
+
+The result is an hourly (or more, depending on manual inputs) time-series for each patient covering the patient's entire admission. We are interested in looking at the effects of the prone position. Therefore, we isolate a complete set of values for an ABG, and the ventilator settings that led to them, as close as is evident on the system:
+
+- before a move to the prone position
+- after a move to the prone position
+- before the corresponding return to the supine position
+- after the corresponding return to the supine position
+
+We do this for each patient each time they are placed in the prone position. Due to small irregularities in the way the data is recorded, the easiest way to do this is to manually inspect and select these observations.
+
+We can now load in the resulting _.xlsx_ file.
+
+```{r load xlsx, warning=FALSE}
+
+path <- ('/Users/davidhannon/Documents/02. Medicine/Med_Programming/00. Patient DB/around_proning_for_ML/first_prone_GUH.xlsx')
+prone_data <- read_xlsx(path = path, guess_max = 100)
+
+head(prone_data)
+
+```
+### Coercing variables
+
+Some variables must be coerced from characters to factors.
+
+```{r coerce variables to factors}
+
+prone_data$patient_id <- as.factor(prone_data$patient_id)
+prone_data$gender <- as.factor(prone_data$gender)
+prone_data$patient_positioning <- as.factor(prone_data$patient_positioning)
+prone_data$proning_sequence <- as.factor(prone_data$proning_sequence)
+prone_data$total_proning <- as.integer(prone_data$total_proning)
+
+```
+
+
+### Calculating new variables
+
+The variables that we want to add to this dataframe are:
+
+- Aa gradient
+- PF ratio
+- mechanical power (delivered by ventilator)
+
