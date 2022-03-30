@@ -8,6 +8,8 @@ output:
     toc_depth: 4
     number_sections: false
     theme: journal
+bibliography: ['References/prone_explore_refs.bib']
+  
 ---
 
 ```{r setup, include=FALSE}
@@ -22,6 +24,8 @@ library(tableone)
 library(gt)
 library(gtsummary)
 library(tableone)
+library(bookdown)
+library(gridExtra)
 
 ```
 
@@ -40,6 +44,8 @@ This document outlines the exploration of data from the Metavision Electronic Me
 - were subject to the prone position while ventilated
 
 The exploration is performed using R 4.1.2 "Bird Hippie", and requires the `tidyverse`, `lubridate`, `readxl`, `janitor`, `gtsummary`, `gt` and `DataEditR` packages.
+
+The entire GitHub repository, which includes all code to fully replicate the outlined processes, can be found [here](https://github.com/e05bf027/gas_efficiency).
 
 \
 
@@ -77,7 +83,7 @@ Only cardiovascular data seems available in the 'unverified' form. This data is 
 
 The Query Wizard outputs data as a _.xls_ file that is in an unwieldy format and is not conducive to data analysis. The initial phase of processing is to pass this _.xls_ file through a series of scripts that turn the records of each individual patient into a time-series. This processed data obeys the principles of 'tidy data' (Wickham 2014).
 
-The scripts involved in these time series files are described [here](https://github.com/e05bf027/gas_efficiency/blob/main/Approach%20to%20wrangling.Rmd).
+The scripts involved in creating these time series files are described [here](https://github.com/e05bf027/gas_efficiency/blob/main/Approach%20to%20wrangling.Rmd).
 
 \
 
@@ -134,9 +140,13 @@ The variables that we want to add to this dataframe are:
 - Aa gradient
 - PF ratio
 - Arterial blood O2 content 
-- mechanical power (delivered by ventilator)
-- ventilatory ratio
-- BMI
+- Mechanical power (delivered by ventilator)
+- Ventilatory ratio
+- S/F ratio
+- Oxygenation Index
+- PF/P ratio
+- Oxygenation Factor
+- in order to facilitate some of the above, BMI and predicted body weight will also be calculated
 
 \
 
@@ -150,8 +160,10 @@ However, I see versions which use PACO2, and PaCO2. I have included both:
 
 ```{r calc_aa_gradient, results='hide'}
 prone_data <- prone_data %>% 
-  mutate(aa_gradient_pAco2 = ((fi_o2 * (101.3 - 6.3)) - (end_tidal_co2_marquette / 0.8)) - pa_o2,
-         aa_gradient_paco2 = ((fi_o2 * (101.3 - 6.3)) - (pa_co2 / 0.8)) - pa_o2)
+  mutate(aa_gradient_pAco2 = 
+           ((fi_o2 * (101.3 - 6.3)) - (end_tidal_co2_marquette / 0.8)) - pa_o2,
+         aa_gradient_paco2 = 
+           ((fi_o2 * (101.3 - 6.3)) - (pa_co2 / 0.8)) - pa_o2)
 
 round(prone_data$aa_gradient_pAco2, 1)
 round(prone_data$aa_gradient_paco2, 1)
@@ -301,7 +313,7 @@ round(prone_data$pfp_ratio, 0)
 
 #### Oxygenation Factor (OF)
 
-Similar to the above, this measure was proposed initially as a way to reflect shunting in patients undergoing open heart surgery (El-Khatib 2004). It incorporates Paw and is a strong reflection of major ARDS mortality indicators such as mechanical power, driving pressure, and static lung compliance (El-Khabib 2020). As with the previous measure, this incorporates mechanical ventilation settings. In essence this measure 'normalizes' the PF ratio.
+Similar to the above, this measure was proposed initially as a way to reflect shunting in patients undergoing open heart surgery (El-Khabib 2004). It incorporates Paw and is a strong reflection of major ARDS mortality indicators such as mechanical power, driving pressure, and static lung compliance (El-Khabib 2020). As with the previous measure, this incorporates mechanical ventilation settings. In essence this measure 'normalizes' the PF ratio.
 
 In theoretical terms, this is the measure available to me that feels the most promising. It is calculated with the following formula:
 
@@ -338,26 +350,7 @@ prone_data <- prone_data %>%
 
 \
 
-### Result of calculations
-
-The result is a completed data frame with all parameters calculated to enable early analysis. A sample of these calculated variables is shown here.
-
-```{r calculated_parameters, echo=FALSE}
-head(select(prone_data,
-            patient_id,
-            time_since_adm,
-            bmi,
-            aa_gradient_pAco2, 
-            pf_ratio,
-            ca_o2,
-            ventilatory_ratio
-            )
-)
-```
-
-\
-
-## Demographics
+## The population
 
 \
 
@@ -442,6 +435,7 @@ table_1
 ```
 
 \
+\
 
 ## Exploratory Analysis
 
@@ -456,7 +450,7 @@ My ideal is to examine how mechanical power changes throughout proning. Unfortun
 
 \
 
-#### Changes in Peak Inspiratory Pressure (PIP)
+#### Changes in PIP
 
 We can very roughly visualize PIP in the supine vs prone positions.
 
@@ -547,7 +541,7 @@ We can conclude that PIP does **not meaningfully change around prone positioning
 
 \
 
-#### Changes in Dynamic Compliance (Cdyn)
+#### Changes in Cdyn
 
 We will explore a similar exploration to that of PIP. We will begin by examining the changes at each stage.
 
@@ -596,12 +590,14 @@ prone_data %>%
   ggplot(
     mapping = aes(
       x = proning_sequence,
-      y = dynamic_characteristics_pb
+      y = dynamic_characteristics_pb,
+      col = patient_positioning
     )
   ) + 
   geom_boxplot(na.rm = T) +
   xlab('Position') +
   ylab('Cdyn (mL/cmH2O)') +
+  labs(col = 'Position') +
   theme_grey()
 
 ```
@@ -622,5 +618,731 @@ There are several indices of oxygenation to examine in terms of how they change 
 - ventilatory ratio
 - arterial O2 content (CaO2)
 
+In this section we will perform a rough analysis in the different positions relative to proning, similar to exploring our surrogate markers for mechanical power. 
+
+```{r oxy_indices_df, include=FALSE}
 
 
+
+oxy_indices_df <- prone_data %>% 
+  select(
+    patient_id,
+    gender,
+    age,
+    height,
+    bmi,
+    predicted_weight,
+    total_proning,
+    outcome,
+    patient_positioning,
+    proning_sequence,
+    proning_session,
+    aa_gradient_pAco2,
+    aa_gradient_paco2,
+    pf_ratio,
+    ca_o2,
+    ventilatory_ratio,
+    sf_ratio,
+    oxy_index,
+    pfp_ratio,
+    oxy_factor
+  )
+```
+
+\
+
+#### A-a O2 gradient
+
+Assesses for degree pof shunting and V/Q mismatch, so we would expect this to alter with patient position. This has been calculated using both the PACO2 and PaCO2.
+
+\
+
+```{r aa_grad_PACO2, echo=FALSE}
+
+aa_df <- oxy_indices_df %>% 
+  group_by(
+    proning_sequence
+  ) %>% 
+  rename(
+    'Proning stage' = proning_sequence
+  ) %>% 
+  summarise(
+    'A-a gradient (PACO2) mean' = mean(aa_gradient_pAco2, na.rm = T),
+    'A-a gradient (PACO2) sd' = sd(aa_gradient_pAco2, na.rm = T),
+    'A-a gradient (PaCO2) mean' = mean(aa_gradient_paco2, na.rm = T),
+    'A-a gradient (PaCO2) sd' = sd(aa_gradient_paco2, na.rm = T)
+  ) %>% 
+  gt() %>% 
+  tab_header(
+      title = md("**A-a gradient in different positions (kPa)**")
+    ) %>% 
+  cols_align(
+    align = c('left'),
+    columns = 'Proning stage'
+  ) %>% 
+  cols_align(
+    align = c('center'),
+    columns = 2:5
+    ) %>% 
+  fmt_number(
+    columns = 2:5,
+    decimals = 1) %>% 
+  tab_source_note(
+    source_note = md("*Source: data described in Table 1*")
+  )
+
+```
+
+The A-a gradients produced here are very large, though carefully examining the code that produces the result suggests they are accurate. There is a fairly standard offset when using PACO2 or PaCO2, so PACO2 has been used to visualize this.
+
+```{r aa_grad_box, echo=FALSE}
+oxy_indices_df %>% 
+  ggplot(
+    mapping = aes(
+      x = proning_sequence,
+      y = aa_gradient_pAco2,
+      col = patient_positioning
+    )
+  ) + 
+  geom_boxplot(na.rm = T) +
+  xlab('Position') +
+  ylab('A-a gradient (kPa)') +
+  labs(col = 'Position') +
+  theme_grey()
+```
+\
+
+We can see that there is a significant reduction in A-a O2 gradient in and throughout prone positioning. The increase in distribution of the data when placed in the prone position will be examined more deeply when the basic changes in various indices of oxygenation is complete.
+
+\
+
+#### PF ratio
+
+We begin with a statistical analysis.
+
+\
+
+```{r pfr_stats, echo=FALSE}
+
+oxy_indices_df %>% 
+  group_by(
+    proning_sequence
+  ) %>% 
+  rename(
+    'Proning stage' = proning_sequence
+  ) %>% 
+  summarise(
+    'P/F ratio mean' = mean(pf_ratio, na.rm = T),
+    'P/F ratio sd' = sd(pf_ratio, na.rm = T)
+  ) %>% 
+  gt() %>% 
+  tab_header(
+      title = md("**PFR in different positions**")
+    ) %>% 
+  cols_align(
+    align = c('left'),
+    columns = 'Proning stage'
+  ) %>% 
+  cols_align(
+    align = c('center'),
+    columns = 2:3
+    ) %>% 
+  fmt_number(
+    columns = 2:3,
+    decimals = 1
+  ) %>% 
+  tab_source_note(
+    source_note = md("*Source: data described in Table 1*")
+  )
+
+```
+\
+
+This seems to indicate a significant change in different positions. PFR appears to improve when placed in the prone position, and to continue improving throughout this time. A visual analysis makes this more obvious. After proning, it appears the PFR returns to a similar level as before proning.
+
+```{r pfr_boxplot, echo=FALSE}
+oxy_indices_df %>% 
+  ggplot(
+    mapping = aes(
+      x = proning_sequence,
+      y = pf_ratio,
+      col = patient_positioning
+    )
+  ) + 
+  geom_boxplot(na.rm = T) +
+  xlab('Position') +
+  ylab('P/F ratio') +
+  labs(col = 'Position') +
+  theme_grey()
+```
+
+We can see from this graph and from the statistical table that standard deviation increases in the prone position. This could be because:
+
+- some patients respond while others do not
+- there is a change in response over time with each further episode of prone positioning 
+
+\
+
+#### Arterial O2 content
+
+This measure describes how much O2 is present in 100mL of blood. This has been calculated with arterial blood saturation measured from the ABG, rather than spO2.
+
+\
+
+```{r cao2_df, echo=FALSE}
+oxy_indices_df %>% 
+  group_by(
+    proning_sequence
+  ) %>% 
+  rename(
+    'Proning stage' = proning_sequence
+  ) %>% 
+  summarise(
+    'CaO2 mean (mL/dL)' = mean(ca_o2, na.rm = T),
+    'CaO2 sd (mL/dL)' = sd(ca_o2, na.rm = T)
+  ) %>% 
+  gt() %>% 
+  tab_header(
+      title = md("**CaO2 in different positions**")
+    ) %>% 
+  cols_align(
+    align = c('left'),
+    columns = 'Proning stage'
+  ) %>% 
+  cols_align(
+    align = c('center'),
+    columns = 2:3
+    ) %>% 
+  fmt_number(
+    columns = 2:3,
+    decimals = 1
+  ) %>% 
+  tab_source_note(
+    source_note = md("*Source: data described in Table 1*")
+  )
+```
+\
+
+There is almost no difference in arterial oxygen content in this cohort when moving between positions.
+
+\
+
+#### Ventilatory ratio (VR)
+
+The first of the measures to incorpoirate an element of ventilation. it is surprising that it shows little change throughout the change in position.
+
+\
+
+```{r vr df, echo=FALSE}
+oxy_indices_df %>% 
+  group_by(
+    proning_sequence
+  ) %>% 
+  rename(
+    'Proning stage' = proning_sequence
+  ) %>% 
+  summarise(
+    'VR mean' = mean(ventilatory_ratio, na.rm = T),
+    'VR sd' = sd(ventilatory_ratio, na.rm = T)
+  ) %>% 
+  gt() %>% 
+  tab_header(
+      title = md("**Ventilatory Ratio (VR) in different positions**")
+    ) %>% 
+  cols_align(
+    align = c('left'),
+    columns = 'Proning stage'
+  ) %>% 
+  cols_align(
+    align = c('center'),
+    columns = 2:3
+    ) %>% 
+  fmt_number(
+    columns = 2:3,
+    decimals = 2
+  ) %>% 
+  tab_source_note(
+    source_note = md("*Source: data described in Table 1*")
+  )
+```
+\
+
+#### S/F ratio
+
+As mentioned previously, this correlates with the ABG and indeed can be calculated in the absence of an ABG. We can see what appears to be a marked improvement in this measure.
+
+\
+
+```{r sfr_df, echo=FALSE}
+oxy_indices_df %>% 
+  group_by(
+    proning_sequence
+  ) %>% 
+  rename(
+    'Proning stage' = proning_sequence
+  ) %>% 
+  summarise(
+    'S/F mean' = mean(sf_ratio, na.rm = T),
+    'S/F sd' = sd(sf_ratio, na.rm = T)
+  ) %>% 
+  gt() %>% 
+  tab_header(
+      title = md("**S/F Ratio in different positions**")
+    ) %>% 
+  cols_align(
+    align = c('left'),
+    columns = 'Proning stage'
+  ) %>% 
+  cols_align(
+    align = c('center'),
+    columns = 2:3
+    ) %>% 
+  fmt_number(
+    columns = 2:3,
+    decimals = 0
+  ) %>% 
+  tab_source_note(
+    source_note = md("*Source: data described in Table 1*")
+  )
+```
+\
+
+This is confirmed by graphical analysis. The improvement seems to mirror that of A-a gradient, though in reverse.
+
+\
+```{r sfr_plot, echo=FALSE}
+oxy_indices_df %>% 
+  ggplot(
+    mapping = aes(
+      x = proning_sequence,
+      y = sf_ratio,
+      col = patient_positioning
+    )
+  ) + 
+  geom_boxplot(na.rm = T) +
+  xlab('Position') +
+  ylab('S/F ratio') +
+  labs(col = 'Position') +
+  theme_grey()
+```
+\
+
+#### Oxygenation Index (OI)
+
+Commonly used in NICUs and when assessing patients for ECMO.
+
+\
+
+```{r oi_df, echo=FALSE}
+oxy_indices_df %>% 
+  group_by(
+    proning_sequence
+  ) %>% 
+  rename(
+    'Proning stage' = proning_sequence
+  ) %>% 
+  summarise(
+    'OI mean' = mean(oxy_index, na.rm = T),
+    'OI sd' = sd(oxy_index, na.rm = T)
+  ) %>% 
+  gt() %>% 
+  tab_header(
+      title = md("**OI in different positions**")
+    ) %>% 
+  cols_align(
+    align = c('left'),
+    columns = 'Proning stage'
+  ) %>% 
+  cols_align(
+    align = c('center'),
+    columns = 2:3
+    ) %>% 
+  fmt_number(
+    columns = 2:3,
+    decimals = 1
+  ) %>% 
+  tab_source_note(
+    source_note = md("*Source: data described in Table 1*")
+  )
+
+```
+\
+
+A now familiar pattern is emerging.
+
+\
+```{r oi_boxplot, echo=FALSE}
+oxy_boxplot <- oxy_indices_df %>% 
+  ggplot(
+    mapping = aes(
+      x = proning_sequence,
+      y = oxy_index,
+      col = patient_positioning
+    )
+  ) + 
+  geom_boxplot(na.rm = T) +
+  xlab('Position') +
+  ylab('Oxygenation Index') +
+  labs(col = 'Position') +
+  theme_grey()
+```
+
+\
+
+#### PF/P ratio
+
+As is common with other markers of oxygenation, the index improves throughout proning but the sd increases.
+
+\
+
+```{r pfp_df, echo=FALSE}
+oxy_indices_df %>% 
+  group_by(
+    proning_sequence
+  ) %>% 
+  rename(
+    'Proning stage' = proning_sequence
+  ) %>% 
+  summarise(
+    'P/FP mean' = mean(pfp_ratio, na.rm = T),
+    'P/FP sd' = sd(pfp_ratio, na.rm = T)
+  ) %>% 
+  gt() %>% 
+  tab_header(
+      title = md("**P/FP ratio in different positions**")
+    ) %>% 
+  cols_align(
+    align = c('left'),
+    columns = 'Proning stage'
+  ) %>% 
+  cols_align(
+    align = c('center'),
+    columns = 2:3
+    ) %>% 
+  fmt_number(
+    columns = 2:3,
+    decimals = 0
+  ) %>% 
+  tab_source_note(
+    source_note = md("*Source: data described in Table 1*")
+  )
+```
+\
+
+```{r pfp_boxplot, echo=FALSE}
+oxy_indices_df %>% 
+  ggplot(
+    mapping = aes(
+      x = proning_sequence,
+      y = pfp_ratio,
+      col = patient_positioning
+    )
+  ) + 
+  geom_boxplot(na.rm = T) +
+  xlab('Position') +
+  ylab('Oxygenation Index') +
+  labs(col = 'Position') +
+  theme_grey()
+```
+
+\
+
+#### Oxygenation Factor (OF)
+
+ \
+ 
+```{r of_df, echo=FALSE}
+oxy_indices_df %>% 
+  group_by(
+    proning_sequence
+  ) %>% 
+  rename(
+    'Proning stage' = proning_sequence
+  ) %>% 
+  summarise(
+    'OF mean' = mean(oxy_factor, na.rm = T),
+    'OF sd' = sd(oxy_factor, na.rm = T)
+  ) %>% 
+  gt() %>% 
+  tab_header(
+      title = md("**OF in different positions**")
+    ) %>% 
+  cols_align(
+    align = c('left'),
+    columns = 'Proning stage'
+  ) %>% 
+  cols_align(
+    align = c('center'),
+    columns = 2:3
+    ) %>% 
+  fmt_number(
+    columns = 2:3,
+    decimals = 0
+  ) %>% 
+  tab_source_note(
+    source_note = md("*Source: data described in Table 1*")
+  )
+```
+\
+
+```{r of_boxplot, echo=FALSE}
+oxy_indices_df %>% 
+  ggplot(
+    mapping = aes(
+      x = proning_sequence,
+      y = oxy_factor,
+      col = patient_positioning
+    )
+  ) + 
+  geom_boxplot(na.rm = T) +
+  xlab('Position') +
+  ylab('Oxygenation Factor') +
+  labs(col = 'Position') +
+  theme_grey()
+```
+
+\
+
+## Differences between those who live and who die
+
+First let us split the data between patients who lived, and who died. We will find the median times of proning for each of these. As can be seen, the median number of times a person who is discharged from the ICU is 4, whereas for those who died it is 6.
+
+```{r median_prones, include=FALSE}
+
+dc_median_prone <- prone_data %>% 
+  filter(outcome == "DC") %>% 
+  summarise(dc_median = median(total_proning)) %>% 
+  print()
+
+rip_median_prone <- prone_data %>% 
+  filter(outcome == "RIP") %>% 
+  summarise(rip_median = median(total_proning)) %>% 
+  print()
+
+```
+
+No definite conclusions can be drawn from this other than to say the lungs of those who died are not as responsive to proning, for whatever reason. Let's quickly look at a graphical representation of differences in some measures of oxygenation between patients who died during their admission, and those who survived.
+
+```{r split_df, echo=FALSE}
+# split the prone data frame into living and dead
+prone_rip <- prone_data %>% 
+  filter(outcome == 'RIP')
+
+prone_dc <- prone_data %>% 
+  filter(outcome == 'DC')
+
+# some tidying
+rm(dc_median_prone,
+   rip_median_prone,
+   pip_prone_supine,
+   oxy_indices_df,
+   cdyn_prone_supine)
+
+```
+
+### PFR
+
+It appears that those who die have a lower PF ratio before proning, on average, and this PF ratio changes less following being placed in the prone position. There is a greater spread in the PF ratio values following the change to the prone position, so is it possible that some people 'respond' and then stop responding?
+
+\
+
+```{r echo=FALSE}
+pfr_dc <- prone_dc %>% 
+  ggplot(
+    mapping = aes(
+      x = proning_sequence,
+      y = pf_ratio,
+      col = patient_positioning
+    )
+  ) + 
+  geom_boxplot(na.rm = T) +
+  xlab('Position') +
+  scale_y_continuous(
+    limits = c(5, 55),
+    breaks = seq(0, 55, 10),
+    name = 'PF ratio'
+  ) +
+  labs(col = 'Position') +
+  theme_grey()  +
+  ggtitle('Changes in PFR (survived to DC)')+
+  theme(legend.position = 'bottom') 
+
+pfr_rip <- prone_rip %>% 
+  ggplot(
+    mapping = aes(
+      x = proning_sequence,
+      y = pf_ratio,
+      col = patient_positioning
+    )
+  ) + 
+  geom_boxplot(na.rm = T) +
+  xlab('Position') +
+  scale_y_continuous(
+    limits = c(5, 55),
+    breaks = seq(0, 55, 10),
+    name = 'PF ratio'
+  ) +
+  labs(col = 'Position') +
+  theme_grey() +
+  ggtitle('Changes in PFR (RIP)') +
+  theme(legend.position = 'bottom') 
+
+grid.arrange(pfr_dc, pfr_rip, ncol = 2)
+```
+
+\
+
+### OF
+
+A similar pattern is seen when examining Oxygenation Factor.
+
+\
+
+```{r echo=FALSE}
+of_dc <- prone_dc %>% 
+  ggplot(
+    mapping = aes(
+      x = proning_sequence,
+      y = oxy_factor,
+      col = patient_positioning
+    )
+  ) + 
+  geom_boxplot(na.rm = T) +
+  xlab('Position') +
+  scale_y_continuous(
+    limits = c(0, 800),
+    breaks = seq(0, 800, 100),
+    name = 'Oxygenation Factor'
+  ) +
+  labs(col = 'Position') +
+  theme_grey()  +
+  ggtitle('Changes in OF (survived to DC)')+
+  theme(legend.position = 'bottom') 
+
+of_rip <- prone_rip %>% 
+  ggplot(
+    mapping = aes(
+      x = proning_sequence,
+      y = oxy_factor,
+      col = patient_positioning
+    )
+  ) + 
+  geom_boxplot(na.rm = T) +
+  xlab('Position') +
+  scale_y_continuous(
+    limits = c(0, 800),
+    breaks = seq(0, 800, 100),
+    name = 'Oxygenation Factor'
+  ) +
+  labs(col = 'Position') +
+  theme_grey() +
+  ggtitle('Changes in OF (RIP)') +
+  theme(legend.position = 'bottom') 
+
+grid.arrange(of_dc, of_rip, ncol = 2)
+```
+
+\
+
+### VR
+
+Let's look at ventilatory ratio and see if the same pattern is present.
+
+\
+
+```{r echo=FALSE}
+vr_dc <- prone_dc %>% 
+  ggplot(
+    mapping = aes(
+      x = proning_sequence,
+      y = ventilatory_ratio,
+      col = patient_positioning
+    )
+  ) + 
+  geom_boxplot(na.rm = T) +
+  xlab('Position') +
+  scale_y_continuous(
+    limits = c(0, 3.5),
+    breaks = seq(0, 3.5, 1),
+    name = 'Ventilatory Ratio'
+  ) +
+  labs(col = 'Position') +
+  theme_grey()  +
+  ggtitle('Changes in VR (survived to DC)')+
+  theme(legend.position = 'bottom') 
+
+vr_rip <- prone_rip %>% 
+  ggplot(
+    mapping = aes(
+      x = proning_sequence,
+      y = ventilatory_ratio,
+      col = patient_positioning
+    )
+  ) + 
+  geom_boxplot(na.rm = T) +
+  xlab('Position') +
+  scale_y_continuous(
+    limits = c(0, 3.5),
+    breaks = seq(0, 3.5, 1),
+    name = 'Ventilatory Ratio'
+  ) +
+  labs(col = 'Position') +
+  theme_grey() +
+  ggtitle('Changes in VR (RIP)') +
+  theme(legend.position = 'bottom') 
+
+grid.arrange(vr_dc, vr_rip, ncol = 2)
+```
+
+The observed differences with ventilatory ratio are much less impressive and there are more extreme outliers. Let's finally look at A-a gradient.
+
+\
+
+### Aa gradient
+
+```{r echo=FALSE}
+aa_dc <- prone_dc %>% 
+  ggplot(
+    mapping = aes(
+      x = proning_sequence,
+      y = aa_gradient_paco2,
+      col = patient_positioning
+    )
+  ) + 
+  geom_boxplot(na.rm = T) +
+  xlab('Position') +
+  scale_y_continuous(
+    limits = c(0, 90),
+    breaks = seq(0, 90, 10),
+    name = 'A-a O2 gradient'
+  ) +
+  labs(col = 'Position') +
+  theme_grey()  +
+  ggtitle('Changes in Aa gradient (survived)')+
+  theme(legend.position = 'bottom') 
+
+aa_rip <- prone_rip %>% 
+  ggplot(
+    mapping = aes(
+      x = proning_sequence,
+      y = aa_gradient_paco2,
+      col = patient_positioning
+    )
+  ) + 
+  geom_boxplot(na.rm = T) +
+  xlab('Position') +
+  scale_y_continuous(
+    limits = c(0, 90),
+    breaks = seq(0, 90, 10),
+    name = 'A-a O2 gradient'
+  ) +
+  labs(col = 'Position') +
+  theme_grey() +
+  ggtitle('Changes in Aa gradient (RIP)') +
+  theme(legend.position = 'bottom') 
+
+grid.arrange(aa_dc, aa_rip, ncol = 2)
+```
+\
+
+In this case we see a similar pattern in inverse. However, it appears that thr absolute reduction in Aa bgradient is similar between those who survived and those who did not, but the baseline Aa gradient is higher in those who did not survive.
