@@ -9,7 +9,6 @@
 write_xlsx(x = output_sheets, format_headers = T, path = file_name)
 
 # Save the tibble
-tibble_file <- 
 save(tidy_tibble, file = sprintf('/Users/davidhannon/Documents/02. Medicine/Med_Programming/00. Patient DB/dfs/patient_0%s.Rda', j))
 
 # upload a copy to google drive
@@ -23,4 +22,6 @@ drive_put(local_location, drive_location)
 rm(all_data, 
    output_sheets, 
    drive_location,
-   local_location)
+   local_location,
+   j,
+   file_name)

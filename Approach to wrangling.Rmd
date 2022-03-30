@@ -1,13 +1,14 @@
 ---
 title: "Approach to data wrangling v2.0"
 author: "David M Hannon"
-date: "12/01/2022"
+date: "15/01/2022"
 output: 
   html_document:
         toc: TRUE
         toc_depth: 2
         toc_float: TRUE
         number_sections: TRUE
+        theme: journal
 ---
 
 ```{r setup, include=FALSE}
@@ -425,6 +426,7 @@ ABG_tibble <- tidy_tibble %>%
          ph_abg,
          pa_o2,
          pa_co2,
+         sa_o2_systemic,
          bicarbonate_abg_a,
          lactate_abg,
          base_excess_vt,
@@ -434,7 +436,8 @@ ABG_tibble <- tidy_tibble %>%
          glucose_abg,
          total_haemoglobin,
          fi_o2,
-         tympanic_temperature)
+         tympanic_temperature,
+         sp_o2)
 
 # 3. ventilator
 pb_variables <- c('time',
@@ -535,6 +538,7 @@ This script generates output from the wrangled df from the previous series of sc
 
 # Save a copy of the file
 write_xlsx(x = output_sheets, format_headers = T, path = file_name)
+save(tidy_tibble, file = sprintf'/Users/davidhannon/Documents/02. Medicine/Med_Programming/00. Patient DB/dfs/patient_0%s.Rda', j)
 
 # upload a copy to google drive
 # NB: 'drive_put' allows the file to either renew an existing file,
@@ -550,4 +554,3 @@ rm(all_data,
    local_location)
 
 ```
-
