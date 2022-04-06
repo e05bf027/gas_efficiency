@@ -5,10 +5,11 @@ author: "David M Hannon"
 output: 
   html_document:
     toc: true
-    toc_depth: 3
+    toc_depth: 6
     toc_float: true
     theme: journal
     number_sections: false
+    code_folding: hide
 bibliography: "prone_vent.bib"
 link-citations: yes
 csl: "american-medical-association.csl"
@@ -359,7 +360,7 @@ source('add_new_gas_indices.R')
 
 -   Also creates a new column to show if the data necessary to record BMI was present. This is in anticipation of using techniques to impute NAs with other values (it will show if the value is imputed or actual)
 
-```{r BMI_processing.R, eval=FALSE}
+```{r BMI_processing.R, eval=FALSE, collapse=TRUE}
 # This script calculates the BMI of the patient if their height and weight is
 # available. It also adds a column indicating if their height is present in the
 # original dataset.
@@ -744,6 +745,55 @@ There is essentially no difference between the prone and supine positions when e
    
 \
 
+### Changes in Paw
+
+Mean airway pressure (Paw) is the average pressure on the whole of the respiratory system over the whole of the respiratory cycle. It is therefore the average pressure applied over the entire respiratory cycle. Under most normal circumstances, mean airway pressure correlates well with mean alveolar pressure, and is usually close to the PEEP value. Mean airway pressure differs significantly from mean alveolar pressure when there is significant airflow restriction (eg. bronchospasm) and where there is significant intrinsic PEEP @marini_mean_1992. 
+
+\
+
+```{r paw_table, echo=FALSE}
+# create summary df
+paw_prone_supine <- prone_data %>% 
+  select(proning_sequence, 
+         mean_airway_pressure_pb) %>%
+  group_by(proning_sequence) %>% 
+  summarise(Paw_mean = mean(mean_airway_pressure_pb, na.rm = T),
+            Paw_sd = sd(mean_airway_pressure_pb, na.rm = T))
+
+# create gt table
+paw_prone_supine %>% rename(
+  'Paw mean (cmH2O)' = Paw_mean,
+  'Paw SD (cmH2O)' = Paw_sd,
+  'Proning stage' = proning_sequence
+  ) %>% 
+  gt() %>% 
+  tab_header(
+      title = md("**Paw in different positions**")
+    ) %>% 
+  cols_align(
+    align = c('left'),
+    columns = 'Proning stage'
+  ) %>% 
+  cols_align(
+    align = c('center'),
+    columns = 2:3
+    ) %>% 
+  fmt_number(
+    columns = 2:3,
+    decimals = 1
+  ) %>% 
+  tab_source_note(
+    source_note = md("*Source: data described in Table 1*")
+  )
+
+```
+
+\
+
+There is a small mean decrease in Paw over the course of the prone position, but is similar to PIP and does not appear meaningful or significant.
+
+\
+
 ### Changes in Cdyn
 
 We will explore a similar exploration to that of PIP. We will begin by examining the changes at each stage.
@@ -930,7 +980,122 @@ prone_dc <- prone_data %>%
 
 \
 
-### PF ratio
+### Exploration of indices
+
+This section will include very rough and high level explorations of the data in order to get a feel for what has been captured in the dataset. At this point, we can be curious about who lived and who died as an outcome.
+
+\
+
+##### FiO2
+
+An initial overview of the recorded fio2 values for those who lived vs those who died shows, perhaps unsurprisingly, that patients who did not survive tended to be administered a higher FiO2.
+
+\
+
+```{r rough_fio2, echo=FALSE}
+prone_data %>% 
+  ggplot(
+    mapping = aes(x = patient_id, y = fi_o2, col = outcome)
+  ) +
+  geom_boxplot(
+    na.rm = T
+  ) +
+  theme(
+    axis.text.x = element_text(
+      angle = 90
+      ),
+    axis.title.x = element_text(
+      face = 'bold'
+      ),
+    axis.title.y = element_text(
+      face = 'bold'
+      )
+    ) +
+  xlab('Patient') +
+  ylab('FiO2')
+```
+\
+
+#### PaO2
+
+A similar pattern is seen when looking at pao2 values. The very strong outlier values likely represent times when the fio2 was set to 1.0 around prone positioning, or very effective responses to prone positioning that necessitated a downward titration of fio2 but were not noted until an ABG was performed some time after proning.
+
+\
+
+```{r rough_pao2, echo=FALSE}
+prone_data %>% 
+  ggplot(
+    mapping = aes(
+      x = patient_id, 
+      y = pa_o2, 
+      col = outcome
+      )
+  ) +
+  geom_boxplot(
+    na.rm = T
+  ) +
+  theme(
+    axis.text.x = element_text(
+      angle = 90
+      ),
+    axis.title.x = element_text(
+      face = 'bold'
+      ),
+    axis.title.y = element_text(
+      face = 'bold'
+      )
+    ) +
+  xlab('Patient') +
+  ylab('paO2')
+```
+
+\
+
+We can also look at what FiO2 is needed to produce a certain PaO2. In the plot below, we can see a general trend towards patients who do not survive requiring a higher FiO2 to achieve a satisfactory PaO2, though there is no clear-cut point that denotes a transition. Most values for PaO2 seem to be in the range 8-16kPa.
+
+\
+
+```{r fio2_vs_pao2, echo=FALSE}
+prone_data %>% 
+  ggplot(mapping = 
+           aes(
+             x = fi_o2, 
+             y = pa_o2,
+             col = outcome
+             )
+         ) +
+  geom_jitter(
+    na.rm = T, 
+    width = 0.006
+    ) +
+  theme(
+    axis.title.x = element_text(
+      face = 'bold'
+      ),
+    axis.title.y = element_text(
+      face = 'bold'
+      )
+    ) +
+  scale_x_continuous(
+    name = 'FiO2', 
+    limits = c(0.25, 1.0), 
+    breaks = seq(0.25, 1.0, 0.05)
+    ) +
+  scale_y_continuous(
+    name = 'PaO2 (kPa)', 
+    limits = c(5, 35), 
+    breaks = seq(5, 35, 5)
+  )
+
+```
+
+
+
+
+
+\
+
+#### PF ratio
 
 Assesses lung function, particularly useful for intubated patients @horovitz_pulmonary_1974. It uses the following equation:
 
@@ -993,7 +1158,7 @@ It can be seen that among those who survived, there is a more marked increase in
 
 \
 
-### Oxygenation Factor (OF)
+#### Oxygenation Factor (OF)
 
 This measure was proposed initially as a way to reflect shunting in patients undergoing open heart surgery @el-khatib_new_2004. It incorporates Paw and is a strong reflection of major ARDS mortality indicators such as mechanical power, driving pressure, and static lung compliance @el-khatib_comparison_2020. This measures has the advantage that it incorporates mechanical ventilation settings. In essence this measure 'normalizes' the PF ratio.
 
@@ -1053,7 +1218,9 @@ grid.arrange(of_dc, of_rip, ncol = 2)
 
 We see a pattern very much like that seen when analyzing PFR, which makes sense given how mathematically similar they are.
 
-### Ventilatory ratio
+\
+
+#### Ventilatory ratio
 
 The ventilatory ratio (VR) compares actual measurements and predicted values of minute ventilation and PaCO2. It provides a unitless ratio that can be easily calculated at the bedside. VR is governed by carbon dioxide production and ventilatory efficiency in a logically intuitive way @sinha_ventilatory_2009. The VR was originally proposed over a decade ago. In it's original form, the VR is calculated as follows:
 
@@ -1115,7 +1282,7 @@ The observed differences with ventilatory ratio are much less impressive and the
 
 \
 
-### A-a O2 gradient
+#### A-a O2 gradient
 
 This index assesses for degree of shunting and V/Q mismatch, first proposed over 40 years ago @helmholz_abbreviated_1979. It is calculated as follows:
 
@@ -1163,7 +1330,8 @@ aa_rip <- prone_rip %>%
   labs(col = 'Position') +
   theme_grey() +
   ggtitle('Changes in Aa gradient (RIP)') +
-  theme(legend.position = 'bottom') 
+  theme(
+    legend.position = 'bottom') 
 
 grid.arrange(aa_dc, aa_rip, ncol = 2)
 ```
@@ -1171,6 +1339,183 @@ grid.arrange(aa_dc, aa_rip, ncol = 2)
 \
 
 In this case we see a similar pattern in inverse. However, it appears that thr absolute reduction in Aa gradient is similar between those who survived and those who did not, but the baseline Aa gradient is higher in those who did not survive.
+
+\
+
+## Response to proning
+### Classifying response
+
+The response of patients to being placed in the prone position can also be classified. Langer at al. classified patients as _Oxygen Responders_ or _Carbon Dioxide Responders_ in a 2021 paper @langer_prone_2021. A patient was designated as an “O2-Responder”, if they had an increase in the PFR of ≥ 2.67kPa (20 mmHg) during prone ventilation as compared to baseline values in supine position. Patients were defined as “CO2-Responders”, if their Ventilatory Ratio (VR) was reduced during prone ventilation, as compared to baseline values in supine position.
+
+In order to examine this we will create a new df.
+
+```{r create_prone_response_df, echo=TRUE}
+prone_df_response <- prone_data %>% 
+  select(
+    c(1:5, 7, 9, 10, 65, 12, 13, 15:18, 67, 69, 70, 71, 73, 75)
+    )
+```
+
+\
+
+New variables will be added to this df. These will be:
+
+- whether the patient was 'oxygen responsive' during that proning session
+- what the change in PFR was in the session
+- whether the patient was 'carbon dioxide responsive' 
+- what the change in VR was in the session
+
+```{r add_response_vars, echo=FALSE}
+# we isolate only the variables we are interested in before pivoting the table wider and then calculating the needed variables regarding pfr (o2) response
+prone_pfr_response <- prone_data %>% 
+  select(
+    patient_id,
+    bmi,
+    proning_session,
+    proning_sequence,
+    pf_ratio,
+    outcome
+  ) %>% 
+  filter(
+    proning_sequence != 'post_prone' & proning_sequence != 'post_unprone'
+  ) %>% 
+  pivot_wider(
+    names_from = proning_sequence,
+    values_from = pf_ratio
+  ) %>% 
+  mutate(
+    pfr_change = pre_unprone - pre_prone,
+    o2_responder = pfr_change > 2.67
+  ) %>% 
+  rename(
+    'pfr_pre_prone' = 'pre_prone',
+    'pfr_pre_unprone' = 'pre_unprone'
+  )
+
+prone_pfr_response$id_col <- 1:nrow(prone_pfr_response) # adds unique col for later joining
+
+# repeat the above for ventilatory ratio ============================================
+prone_vr_response <- prone_data %>% 
+  select(
+    patient_id,
+    proning_session,
+    proning_sequence,
+    ventilatory_ratio,
+    outcome
+  ) %>% 
+  filter(
+    proning_sequence != 'post_prone' & proning_sequence != 'post_unprone'
+  ) %>% 
+  pivot_wider(
+    names_from = proning_sequence,
+    values_from = ventilatory_ratio
+  ) %>% 
+  mutate(
+    vent_ratio_change = pre_unprone - pre_prone,
+    co2_responder = vent_ratio_change > 0
+  )%>% 
+  rename(
+    'vent_ratio_pre_prone' = 'pre_prone',
+    'vent_ratio_pre_unprone' = 'pre_unprone'
+  )
+
+prone_vr_response$id_col <- 1:nrow(prone_vr_response) # adds unique col for later joining
+
+# repeat for aa gradient =====================================================
+prone_aA_response <- prone_data %>% 
+  select(
+    patient_id,
+    bmi,
+    proning_session,
+    proning_sequence,
+    aa_gradient_pAco2,
+    outcome
+  ) %>% 
+  filter(
+    proning_sequence != 'post_prone' & proning_sequence != 'post_unprone'
+  ) %>% 
+  pivot_wider(
+    names_from = proning_sequence,
+    values_from = aa_gradient_pAco2
+  ) %>% 
+  mutate(
+    aA_grad_change = pre_unprone - pre_prone
+  )%>% 
+  rename(
+    'aA_grad_pre_prone' = 'pre_prone',
+    'aA_grad_pre_unprone' = 'pre_unprone'
+  )
+
+prone_aA_response$id_col <- 1:nrow(prone_aA_response) # adds unique col for later joining
+
+# repeat for aa gradient =======================================================
+prone_oxy_factor_response <- prone_data %>% 
+  select(
+    patient_id,
+    bmi,
+    proning_session,
+    proning_sequence,
+    oxy_factor,
+    outcome
+  ) %>% 
+  filter(
+    proning_sequence != 'post_prone' & proning_sequence != 'post_unprone'
+  ) %>% 
+  pivot_wider(
+    names_from = proning_sequence,
+    values_from = oxy_factor
+  ) %>% 
+  mutate(
+    oxy_factor_change = pre_unprone - pre_prone
+  )%>% 
+  rename(
+    'oxy_factor_pre_prone' = 'pre_prone',
+    'oxy_factor_pre_unprone' = 'pre_unprone'
+  )
+
+prone_oxy_factor_response$id_col <- 1:nrow(prone_aA_response) # adds unique col for later joining
+
+# =================================================================================
+
+## amalgamate the dataframes
+# 1 - prone_vr_response
+# 2 - prone_pfr_response
+# 3 - prone_aA_response
+# 4 - prone_oxy_factor_response
+
+indices_response <- right_join(
+  x = prone_pfr_response,
+  y = prone_vr_response[, 4:8],
+  by = 'id_col'
+  )
+
+# join aa table 
+indices_response <- right_join(
+  x = indices_response,
+  y = prone_aA_response[, 5:8],
+  by = 'id_col'
+  )
+
+# join oxy_factor table 
+indices_response <- right_join(
+  x = indices_response,
+  y = prone_oxy_factor_response[, 5:8],
+  by = 'id_col'
+  )
+
+# tidy up
+rm(
+  prone_pfr_response,
+  prone_vr_response,
+  prone_aA_response,
+  prone_oxy_factor_response,
+  cdyn_prone_supine,
+  dc_median_prone,
+  paw_prone_supine,
+  pip_prone_supine
+)
+```
+
 
 \
 
