@@ -1,0 +1,144 @@
+---
+title: "Imputation of height"
+author: "David M Hannon"
+output: 
+  html_document:
+    toc: true
+    toc_depth: 6
+    toc_float: true
+    theme: journal
+    number_sections: false
+
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(readxl)
+library(DataEditR)
+library(tableone)
+library(gt)
+library(gtsummary)
+library(mice)
+set.seed(1)
+rm(list = ls())
+```
+
+## Introduction
+
+The .xlsx master file is read in.
+
+```{r read_in_xlsx, echo=TRUE, message=FALSE, warning=FALSE, results='hide'}
+path <- ('/Users/davidhannon/Documents/02. Medicine/Med_Programming/00. Patient DB/around_proning_for_ML/around_proning.xlsx')
+
+population_prone <- read_xlsx(path = path, guess_max = 100) %>% 
+  select(
+    patient_id,
+    gender,
+    age,
+    weight,
+    height_recorded,
+    height,
+    total_proning,
+    apache_ii,
+    location_preadmission,
+    los,
+    outcome
+  ) %>% 
+  distinct()
+```
+
+We now have a dataframe of the entire population who are in the study (n = `r nrow(population_prone)`). Of these, the patient height could be located for `r sum(population_prone$height_recorded == 'T')`, and not recorded or locatable for `r sum(population_prone$height_recorded == 'F')`.
+
+We must initially replace all heights that are ICNARC standard values with NA. We can then see what missing values we are dealing with in a visualisation.
+
+```{r replace_na, echo=TRUE, results='hide'}
+population_prone$height[population_prone$height_recorded == "F"] <- NA
+md.pattern(population_prone, rotate.names = T)
+
+```
+
+\
+
+We will ensure the variables are encoded correctly.
+
+```{r include=FALSE}
+
+population_prone$gender <- as.factor(population_prone$gender)
+population_prone$age <- as.integer(population_prone$age)
+population_prone$total_proning <- as.integer(population_prone$total_proning)
+population_prone$apache_ii <- as.integer(population_prone$apache_ii)
+population_prone$location_preadmission <- as.factor(population_prone$location_preadmission)
+population_prone$outcome <- as.factor(population_prone$outcome)
+
+```
+
+And then run the MICE imputation
+
+```{r include=FALSE}
+
+prone_impute_raw <- select(population_prone, -height_recorded)
+prone_model <- mice(data = prone_impute_raw, m = 100, method = 'pmm')
+rm(prone_impute_raw)
+```
+
+We now have imputed values for the `r sum(population_prone$height_recorded == 'F')` heights that were  missing. Let's create a new dataframe of imputed values. We will also add ina variable to show if it is an imputed value or not.
+
+```{r}
+# turn the imputed data into a tibble
+prone_demo_imputed <- as_tibble(complete(prone_model))
+
+# get raw demographics data frame ready for the join
+population_prone <- select(population_prone, patient_id, height_recorded)
+
+# join
+prone_demo_imputed <- 
+  left_join(x = prone_demo_imputed,
+           y = population_prone,
+           by = "patient_id")
+
+# add var to indicate if height was imputed
+prone_demo_imputed$height_imputed <- prone_demo_imputed$height_recorded != 'T'
+select(prone_demo_imputed, -height_recorded)
+
+```
+
+Now create a summary of the new demographics
+
+```{r}
+# theme_gtsummary_journal(journal = "jama")
+# Setting theme `JAMA`
+
+theme_gtsummary_compact()
+# Setting theme `Compact`
+
+table_1 <- prone_demo_imputed %>%
+  select(-c(height_recorded, height_imputed, patient_id)) %>% 
+  tbl_summary(
+    statistic = list(all_continuous() ~ "{mean} ({sd})",
+                     all_categorical() ~ "{n} / {N} ({p}%)"),
+    digits = all_continuous() ~ 1,
+    label = list(gender ~ "Gender", 
+                 age ~ "Age (years)",
+                 weight ~ "Weight (kg)",
+                 height ~ "Height (cm)",
+                 #bmi ~ "BMI",
+                 apache_ii ~ "Apache II",
+                 total_proning ~ "Total proning sessions",
+                 location_preadmission ~ "Admitting location",
+                 los ~ "Length of stay (days)",
+                 outcome ~ "Outcome")
+  ) %>% 
+  # modify_caption("**Table 1. Patient Characteristics**") %>% 
+  bold_labels() %>% 
+  modify_footnote(
+    all_stat_cols() ~ "Mean (SD) or Frequency (%)
+    "
+  ) %>% 
+  as_gt() %>% 
+  gt::tab_source_note(gt::md("some heights imputed"))
+
+table_1
+
+```
+
