@@ -19,6 +19,8 @@ csl: "american-medical-association.csl"
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 
+rm(list = ls())
+
 library(tidyverse)
 library(lubridate)
 library(readxl)
@@ -30,6 +32,7 @@ library(gtsummary)
 library(tableone)
 library(bookdown)
 library(gridExtra)
+library(mice)
 
 ```
 
@@ -43,7 +46,7 @@ library(gridExtra)
 This document outlines the exploration of data from the Metavision Electronic Medical Record (EMR) in University Hospital Galway (UHG). The data comes from patients who were: 
 
 - diagnosed with Covid-19
-- admitted to the Intensive Care Unit (ICU) of UHG during the period 20/03/2020 - 22/09/2021
+- admitted to the Intensive Care Unit (ICU) of UHG during the period 20/03/2020 - 20/03/2022
 - underwent invasive ventilation
 - were subject to the prone position while ventilated
 
@@ -382,7 +385,7 @@ source('create_subtibbles.R')
 
 
 \
-**6. Divide the data into groups** create_subtibbles.R
+**6. Divide the data into groups** (create_subtibbles.R)
 
 - This script isolates certain specific groups of variables and places the dfs in a list that can be later used to populate sheets in a .xlsx output
 
@@ -477,7 +480,8 @@ cardio_tibble <- tidy_tibble %>%
          arterial_pressure_mean,
          non_invasive_arterial_pressure_systolic,
          non_invasive_arterial_pressure_diastolic,
-         non_invasive_arterial_pressure_mean)
+         non_invasive_arterial_pressure_mean
+         )
 
 # check if advanced CO parameters are present and add them if they do
 adv_co <- c('central_venous_pressure',
@@ -558,7 +562,7 @@ rm(all_data,
 
 
 \
-This represents my approach to wrangling the data to create a time-series for the admision of each patient. I have now designed a filter for the Metavision Query Wizard output that captures essentially any data we have available, with the caveatd mentioned above.
+This represents my approach to wrangling the data to create a time-series for the admission of each patient. I have now designed a filter for the Metavision Query Wizard output that captures essentially any data we have available, with the caveats mentioned above.
 
 \
 
@@ -578,7 +582,7 @@ It should be noted that the ABG data is transcribed to Metavision by the nurse a
 
 ```{r load_xlsx, echo=FALSE, message=FALSE, warning=FALSE}
 
-path <- ('/Users/davidhannon/Documents/02. Medicine/Med_Programming/00. Patient DB/around_proning_for_ML/first_prone_GUH.xlsx')
+path <- ('/Users/davidhannon/Documents/02. Medicine/Med_Programming/00. Patient DB/around_proning_for_ML/around_proning.xlsx')
 prone_data <- read_xlsx(path = path, guess_max = 100)
 
 head(prone_data[, c(2, 15, 20:24)])
@@ -610,30 +614,88 @@ prone_data$proning_session <- as.integer(prone_data$proning_session)
 
 # The observed population
 
-One final step is to calculate the BMI for each patient. The patient height is often missing from the Metavision system. If this is unavailable, Intensive Care National Audit & Research Centre (ICNARC) convention assumes 175cm for males, 165cm for females. The final result for the obeserved population is shown below. Note that this is a work in progress, and will be expanded upon with each further trip to UHG.
+We now have a dataframe of the entire population who are in the study (n = `r nrow(population_prone)`). Of these, the patient height could be located for `r sum(population_prone$height_recorded == 'T')`, and not recorded or locatable for `r sum(population_prone$height_recorded == 'F')`. There are a few ways this missing data can be handled.
+
+- delete the observations it is part of
+- replace NA with ICNARC values
+- impute with MICE
+
+```{r}
+population_prone <- prone_data %>% 
+  select(
+    patient_id,
+    gender,
+    age,
+    weight,
+    height_recorded,
+    height,
+    total_proning,
+    apache_ii,
+    location_preadmission,
+    los,
+    outcome
+  ) %>% 
+  distinct()
+```
+
+We must initially replace all heights that are ICNARC standard values with NA. We can then see what missing values we are dealing with in a visualisation.
+
+```{r}
+population_prone$height[population_prone$height_recorded == "F"] <- NA
+md.pattern(population_prone, rotate.names = T)
+```
+
+\
+
+We will ensure the variables are encoded correctly.
+
+```{r include=FALSE}
+
+population_prone$gender <- as.factor(population_prone$gender)
+population_prone$age <- as.integer(population_prone$age)
+population_prone$total_proning <- as.integer(population_prone$total_proning)
+population_prone$apache_ii <- as.integer(population_prone$apache_ii)
+population_prone$location_preadmission <- as.factor(population_prone$location_preadmission)
+population_prone$outcome <- as.factor(population_prone$outcome)
+
+```
+
+And then run the MICE imputation:
+
+```{r}
+prone_impute_raw <- select(population_prone, -height_recorded)
+prone_model <- mice(data = prone_impute_raw, m = 100, method = 'pmm')
+rm(prone_impute_raw)
+```
+
+We now have imputed values for the `r sum(population_prone$height_recorded == 'F')` heights that were  missing. Let's create a new dataframe of imputed values. We will also add ina variable to show if it is an imputed value or not.
+
+```{r}
+# turn the imputed data into a tibble
+prone_demo_imputed <- as_tibble(complete(prone_model))
+
+# get raw demographics data frame ready for the join
+population_prone <- select(population_prone, patient_id, height_recorded)
+
+# join
+prone_demo_imputed <- 
+  left_join(x = prone_demo_imputed,
+           y = population_prone,
+           by = "patient_id")
+
+# add var to indicate if height was imputed
+prone_demo_imputed$height_imputed <- prone_demo_imputed$height_recorded != 'T'
+select(prone_demo_imputed, -height_recorded)
+```
+
+
+One final step is to calculate the BMI for each patient. The patient height is often missing from the Metavision system. If this is unavailable, Intensive Care National Audit & Research Centre (ICNARC) convention assumes 175cm for males, 165cm for females. However, we have already imputed this datas with the MICE package. The final result for the observed population is shown below. 
 
 ```{r bmi, eval=TRUE, include=TRUE}
 prone_data <- prone_data %>% 
   mutate(bmi = round(weight / (height/100)^2, 1))
 ```
 
-```{r isolate_summarise_population, echo=FALSE}
-
-# isolate data concerning demographics
-prone_data_pop <- prone_data %>%
-  select(gender, 
-         age, 
-         weight, 
-         height, 
-         bmi, 
-         # apache_ii, # ADD THIS AFTER NEXT UHG TRIP
-         total_proning,
-         location_preadmission,
-         los, 
-         outcome) %>% 
-  distinct()
-
-```
 
 ```{r gtsummary_table_1_creation, include=FALSE}
 # theme_gtsummary_journal(journal = "jama")
@@ -652,7 +714,7 @@ table_1 <- prone_data_pop %>%
                  weight ~ "Weight (kg)",
                  height ~ "Height (cm)",
                  bmi ~ "BMI",
-                 # apache_ii ~ "Apache II",
+                 apache_ii ~ "Apache II",
                  total_proning ~ "Total proning sessions",
                  location_preadmission ~ "Admitting location",
                  los ~ "Length of stay (days)",
@@ -682,6 +744,11 @@ table_1
 \
 
 # Calculation of new indices
+
+In this exploration, we will explore both how hard the ventilator is working at different times, and indices of oxygenation at various parts of the proning process to try and ascertain the direct effects on the patient. 
+
+\
+
 ## Surrogate markers for mechanical power
 ### Overview
 
@@ -988,7 +1055,7 @@ This section will include very rough and high level explorations of the data in 
 
 ##### FiO2
 
-An initial overview of the recorded fio2 values for those who lived vs those who died shows, perhaps unsurprisingly, that patients who did not survive tended to be administered a higher FiO2.
+An initial overview of the recorded Fio2 values for those who lived vs those who died shows, perhaps unsurprisingly, that patients who did not survive tended to be administered a higher FiO2.
 
 \
 
@@ -1224,9 +1291,7 @@ We see a pattern very much like that seen when analyzing PFR, which makes sense 
 
 The ventilatory ratio (VR) compares actual measurements and predicted values of minute ventilation and PaCO2. It provides a unitless ratio that can be easily calculated at the bedside. VR is governed by carbon dioxide production and ventilatory efficiency in a logically intuitive way @sinha_ventilatory_2009. The VR was originally proposed over a decade ago. In it's original form, the VR is calculated as follows:
 
-\
-
-$$ VR = \frac{\dot{V}_\text{Emeasured} * PaCO_2}{100 * PBW * 5} $$
+$$ VR = \frac{\dot{V}_\text{Emeasured} * PaCO_2}{100 * \text{PBW} * 5} $$
 
 In this equation, VR is the ventilatory ratio (where close to 1 is considered 'normal'), VE is *minute volume*, PaCO2 is the *partial pressure of CO2* given in an arterial blood gas (ABG). PaCO2 predicted is considered to be 5kPa.
 
@@ -1347,7 +1412,19 @@ In this case we see a similar pattern in inverse. However, it appears that thr a
 
 The response of patients to being placed in the prone position can also be classified. Langer at al. classified patients as _Oxygen Responders_ or _Carbon Dioxide Responders_ in a 2021 paper @langer_prone_2021. A patient was designated as an “O2-Responder”, if they had an increase in the PFR of ≥ 2.67kPa (20 mmHg) during prone ventilation as compared to baseline values in supine position. Patients were defined as “CO2-Responders”, if their Ventilatory Ratio (VR) was reduced during prone ventilation, as compared to baseline values in supine position.
 
-In order to examine this we will create a new df.
+In order to examine this we will create a new df. New variables will be added to this df. These will be:
+
+- whether the patient was 'oxygen responsive' during that proning session
+- what the change in PFR was in the session
+- whether the patient was 'carbon dioxide responsive' 
+- what the change in VR was in the session
+
+In addition, we will calculate changes in the following parameters from just before to the end of the proning session:
+
+- PF ratio
+- Aa O2 gradient
+- Oxygenation Factor
+- Pa O2
 
 ```{r create_prone_response_df, echo=TRUE}
 prone_df_response <- prone_data %>% 
@@ -1355,15 +1432,6 @@ prone_df_response <- prone_data %>%
     c(1:5, 7, 9, 10, 65, 12, 13, 15:18, 67, 69, 70, 71, 73, 75)
     )
 ```
-
-\
-
-New variables will be added to this df. These will be:
-
-- whether the patient was 'oxygen responsive' during that proning session
-- what the change in PFR was in the session
-- whether the patient was 'carbon dioxide responsive' 
-- what the change in VR was in the session
 
 ```{r add_response_vars, echo=FALSE}
 # we isolate only the variables we are interested in before pivoting the table wider and then calculating the needed variables regarding pfr (o2) response
@@ -1473,7 +1541,35 @@ prone_oxy_factor_response <- prone_data %>%
     'oxy_factor_pre_unprone' = 'pre_unprone'
   )
 
-prone_oxy_factor_response$id_col <- 1:nrow(prone_aA_response) # adds unique col for later joining
+prone_oxy_factor_response$id_col <- 1:nrow(prone_oxy_factor_response) # adds unique col for later joining
+
+
+# repeat for pao2 ==============================================================
+pa_o2_response <- prone_data %>% 
+  select(
+    patient_id,
+    bmi,
+    proning_session,
+    proning_sequence,
+    pa_o2,
+    outcome
+  ) %>% 
+  filter(
+    proning_sequence != 'post_prone' & proning_sequence != 'post_unprone'
+  ) %>% 
+  pivot_wider(
+    names_from = proning_sequence,
+    values_from = pa_o2
+  ) %>% 
+  mutate(
+    pa_o2_change = pre_unprone - pre_prone
+  )%>% 
+  rename(
+    'pa_o2_pre_prone' = 'pre_prone',
+    'pa_o2_pre_unprone' = 'pre_unprone'
+  )
+
+pa_o2_response$id_col <- 1:nrow(pa_o2_response) # adds unique col for later joining
 
 # =================================================================================
 
@@ -1482,6 +1578,7 @@ prone_oxy_factor_response$id_col <- 1:nrow(prone_aA_response) # adds unique col 
 # 2 - prone_pfr_response
 # 3 - prone_aA_response
 # 4 - prone_oxy_factor_response
+# 5 - pa_o2_response
 
 indices_response <- right_join(
   x = prone_pfr_response,
@@ -1503,6 +1600,13 @@ indices_response <- right_join(
   by = 'id_col'
   )
 
+# join pa_o2 table 
+indices_response <- right_join(
+  x = indices_response,
+  y = pa_o2_response[, 5:8],
+  by = 'id_col'
+  )
+
 # tidy up
 rm(
   prone_pfr_response,
@@ -1516,8 +1620,75 @@ rm(
 )
 ```
 
+#### CO2 and O2 responders
 
-\
+First we will calculate how many of these patients are 'oxygen responders' and 'CO2 responder'.
+
+```{r respose_prone_1, echo=FALSE}
+
+
+
+indices_response %>% 
+  filter(
+    proning_session == 1
+  ) %>% 
+  select(
+    o2_responder,
+    co2_responder
+  ) %>% 
+  summarise(
+    sum_o2_responders = sum(.$o2_responder, na.rm = T),
+    perc_o2_responders = sum_o2_responders / ,
+    sum_co2_responders = sum(indices_response$co2_responder, na.rm = T),
+    perc_co2_responders = 
+      sum(indices_response$co2_responder, na.rm = T) / nrow(indices_response)
+  ) 
+
+indices_response %>% 
+  filter(
+    proning_session == 1
+  ) %>% 
+  select(
+    o2_responder,
+    co2_responder
+  ) %>% 
+  summarise(
+    sum_o2_responders = sum(.$o2_responder, na.rm = T),
+    perc_o2_responders = (o2_responder = 'TRUE' / (o2_responder = 'TRUE' + o2_responder = 'FALSE')),
+    sum_co2_responders = sum(indices_response$co2_responder, na.rm = T),
+    perc_co2_responders = 
+      sum(indices_response$co2_responder, na.rm = T) / nrow(indices_response)
+  ) 
+
+
+
+pip_prone_supine %>% rename(
+  'PIP mean (cmH2O)' = pip_mean,
+  'PIP SD (cmH2O)' = pip_sd,
+  'Proning stage' = proning_sequence
+  ) %>% 
+  gt() %>% 
+  tab_header(
+      title = md("**PIP in different positions**")
+    ) %>% 
+  cols_align(
+    align = c('left'),
+    columns = 'Proning stage'
+  ) %>% 
+  cols_align(
+    align = c('center'),
+    columns = 2:3
+    ) %>% 
+  fmt_number(
+    columns = 2:3,
+    decimals = 1
+  ) %>% 
+  tab_source_note(
+    source_note = md("*Source: data described in Table 1*")
+  )
+
+```
+
 
 # References
 
