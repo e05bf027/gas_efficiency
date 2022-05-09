@@ -20,7 +20,7 @@ csl: "american-medical-association.csl"
 knitr::opts_chunk$set(echo = TRUE)
 
 rm(list = ls())
-
+set.seed(1)
 library(tidyverse)
 library(lubridate)
 library(readxl)
@@ -33,6 +33,7 @@ library(tableone)
 library(bookdown)
 library(gridExtra)
 library(mice)
+library(writexl)
 
 ```
 
@@ -612,15 +613,14 @@ prone_data$proning_session <- as.integer(prone_data$proning_session)
 
 \
 
-# The observed population
-
+# The observed sample
 We now have a dataframe of the entire population who are in the study (n = `r nrow(population_prone)`). Of these, the patient height could be located for `r sum(population_prone$height_recorded == 'T')`, and not recorded or locatable for `r sum(population_prone$height_recorded == 'F')`. There are a few ways this missing data can be handled.
 
 - delete the observations it is part of
 - replace NA with ICNARC values
 - impute with MICE
 
-```{r}
+```{r isolate_population_df}
 population_prone <- prone_data %>% 
   select(
     patient_id,
@@ -660,6 +660,7 @@ population_prone$outcome <- as.factor(population_prone$outcome)
 
 ```
 
+## Imputation of data
 And then run the MICE imputation:
 
 ```{r}
@@ -688,7 +689,7 @@ prone_demo_imputed$height_imputed <- prone_demo_imputed$height_recorded != 'T'
 select(prone_demo_imputed, -height_recorded)
 ```
 
-
+## Adding BMI
 One final step is to calculate the BMI for each patient. The patient height is often missing from the Metavision system. If this is unavailable, Intensive Care National Audit & Research Centre (ICNARC) convention assumes 175cm for males, 165cm for females. However, we have already imputed this datas with the MICE package. The final result for the observed population is shown below. 
 
 ```{r bmi, eval=TRUE, include=TRUE}
@@ -696,15 +697,20 @@ prone_data <- prone_data %>%
   mutate(bmi = round(weight / (height/100)^2, 1))
 ```
 
+## Summary of sampled population
 
-```{r gtsummary_table_1_creation, include=FALSE}
+\
+
+Errors in this table, return later
+
+```{r gtsummary_table_1_creation, eval=FALSE, include=FALSE}
 # theme_gtsummary_journal(journal = "jama")
 # Setting theme `JAMA`
 
 theme_gtsummary_compact()
 # Setting theme `Compact`
 
-table_1 <- prone_data_pop %>% 
+table_1 <- population_prone %>% 
   tbl_summary(
     statistic = list(all_continuous() ~ "{mean} ({sd})",
                      all_categorical() ~ "{n} / {N} ({p}%)"),
@@ -737,7 +743,7 @@ See Table 1 for a population overview.
 
 \
 
-```{r table_1 display, echo=FALSE}
+```{r table_1 display, eval=FALSE, include=FALSE}
 # code to display table one is a separate chunk as there is an unusual output whenever a theme is set `9as in the top of the above code chunk)
 table_1
 ```
@@ -1438,7 +1444,6 @@ prone_df_response <- prone_data %>%
 prone_pfr_response <- prone_data %>% 
   select(
     patient_id,
-    bmi,
     proning_session,
     proning_sequence,
     pf_ratio,
@@ -1489,14 +1494,13 @@ prone_vr_response <- prone_data %>%
 
 prone_vr_response$id_col <- 1:nrow(prone_vr_response) # adds unique col for later joining
 
-# repeat for aa gradient =====================================================
-prone_aA_response <- prone_data %>% 
+# repeat for fio2 =====================================================
+prone_fio2_response <- prone_data %>% 
   select(
     patient_id,
-    bmi,
     proning_session,
     proning_sequence,
-    aa_gradient_pAco2,
+    fi_o2,
     outcome
   ) %>% 
   filter(
@@ -1504,23 +1508,22 @@ prone_aA_response <- prone_data %>%
   ) %>% 
   pivot_wider(
     names_from = proning_sequence,
-    values_from = aa_gradient_pAco2
+    values_from = fi_o2
   ) %>% 
   mutate(
-    aA_grad_change = pre_unprone - pre_prone
+    fio2_change = pre_unprone - pre_prone
   )%>% 
   rename(
-    'aA_grad_pre_prone' = 'pre_prone',
-    'aA_grad_pre_unprone' = 'pre_unprone'
+    'fio2_pre_prone' = 'pre_prone',
+    'fio2_pre_unprone' = 'pre_unprone'
   )
 
-prone_aA_response$id_col <- 1:nrow(prone_aA_response) # adds unique col for later joining
+prone_fio2_response$id_col <- 1:nrow(prone_fio2_response) # adds unique col for later joining
 
-# repeat for aa gradient =======================================================
+# repeat for oxygenation factor ====================================================
 prone_oxy_factor_response <- prone_data %>% 
   select(
     patient_id,
-    bmi,
     proning_session,
     proning_sequence,
     oxy_factor,
@@ -1544,11 +1547,36 @@ prone_oxy_factor_response <- prone_data %>%
 prone_oxy_factor_response$id_col <- 1:nrow(prone_oxy_factor_response) # adds unique col for later joining
 
 
-# repeat for pao2 ==============================================================
-pa_o2_response <- prone_data %>% 
+# repeat for aa_gradient ===========================================================
+prone_aa_grad_response <- prone_data %>% 
   select(
     patient_id,
-    bmi,
+    proning_session,
+    proning_sequence,
+    aa_gradient_pAco2,
+    outcome
+  ) %>% 
+  filter(
+    proning_sequence != 'post_prone' & proning_sequence != 'post_unprone'
+  ) %>% 
+  pivot_wider(
+    names_from = proning_sequence,
+    values_from = aa_gradient_pAco2
+  ) %>% 
+  mutate(
+    aa_grad_change = pre_unprone - pre_prone
+  )%>% 
+  rename(
+    'aa_grad_pre_prone' = 'pre_prone',
+    'aa_grad_pre_unprone' = 'pre_unprone'
+  )
+
+prone_aa_grad_response$id_col <- 1:nrow(prone_aa_grad_response) # adds unique col for later joining
+
+# repeat for pao2 ==============================================================
+prone_pao2_response <- prone_data %>% 
+  select(
+    patient_id,
     proning_session,
     proning_sequence,
     pa_o2,
@@ -1569,16 +1597,157 @@ pa_o2_response <- prone_data %>%
     'pa_o2_pre_unprone' = 'pre_unprone'
   )
 
-pa_o2_response$id_col <- 1:nrow(pa_o2_response) # adds unique col for later joining
+prone_pao2_response$id_col <- 1:nrow(prone_pao2_response) # adds unique col for later joining
+
+
+# repeat for mean airway pressure =================================================
+prone_paw_response <- prone_data %>% 
+  select(
+    patient_id,
+    proning_session,
+    proning_sequence,
+    mean_airway_pressure_pb,
+    outcome
+  ) %>% 
+  filter(
+    proning_sequence != 'post_prone' & proning_sequence != 'post_unprone'
+  ) %>% 
+  pivot_wider(
+    names_from = proning_sequence,
+    values_from = mean_airway_pressure_pb
+  ) %>% 
+  mutate(
+    paw_change = pre_unprone - pre_prone
+  )%>% 
+  rename(
+    'paw_pre_prone' = 'pre_prone',
+    'paw_pre_unprone' = 'pre_unprone'
+  )
+
+prone_paw_response$id_col <- 1:nrow(prone_paw_response) # adds unique col for later joining
+
+
+# repeat for total Hb =============================================================
+prone_hb_response <- prone_data %>% 
+  select(
+    patient_id,
+    proning_session,
+    proning_sequence,
+    total_haemoglobin,
+    outcome
+  ) %>% 
+  filter(
+    proning_sequence != 'post_prone' & proning_sequence != 'post_unprone'
+  ) %>% 
+  pivot_wider(
+    names_from = proning_sequence,
+    values_from = total_haemoglobin
+  ) %>% 
+  mutate(
+    hb_change = pre_unprone - pre_prone
+  )%>% 
+  rename(
+    'hb_pre_prone' = 'pre_prone',
+    'hb_pre_unprone' = 'pre_unprone'
+  )
+
+prone_hb_response$id_col <- 1:nrow(prone_hb_response) # adds unique col for later joining
+
+
+# repeat for sao2 =============================================================
+prone_sao2_response <- prone_data %>% 
+  select(
+    patient_id,
+    proning_session,
+    proning_sequence,
+    sa_o2_systemic,
+    outcome
+  ) %>% 
+  filter(
+    proning_sequence != 'post_prone' & proning_sequence != 'post_unprone'
+  ) %>% 
+  pivot_wider(
+    names_from = proning_sequence,
+    values_from = sa_o2_systemic
+  ) %>% 
+  mutate(
+    sao2_change = pre_unprone - pre_prone
+  )%>% 
+  rename(
+    'sao2_pre_prone' = 'pre_prone',
+    'sao2_pre_unprone' = 'pre_unprone'
+  )
+
+prone_sao2_response$id_col <- 1:nrow(prone_sao2_response) # adds unique col for later joining
+
+
+# repeat for paco2 =============================================================
+prone_pa_co2_response <- prone_data %>% 
+  select(
+    patient_id,
+    proning_session,
+    proning_sequence,
+    pa_co2,
+    outcome
+  ) %>% 
+  filter(
+    proning_sequence != 'post_prone' & proning_sequence != 'post_unprone'
+  ) %>% 
+  pivot_wider(
+    names_from = proning_sequence,
+    values_from = pa_co2
+  ) %>% 
+  mutate(
+    pa_co2_change = pre_unprone - pre_prone
+  )%>% 
+  rename(
+    'pa_co2_pre_prone' = 'pre_prone',
+    'pa_co2_pre_unprone' = 'pre_unprone'
+  )
+
+prone_pa_co2_response$id_col <- 1:nrow(prone_pa_co2_response) # adds unique col for later joining
+
+
+# repeat for end tidal co2 =======================================================
+prone_etco2_response <- prone_data %>% 
+  select(
+    patient_id,
+    proning_session,
+    proning_sequence,
+    end_tidal_co2_marquette,
+    outcome
+  ) %>% 
+  filter(
+    proning_sequence != 'post_prone' & proning_sequence != 'post_unprone'
+  ) %>% 
+  pivot_wider(
+    names_from = proning_sequence,
+    values_from = end_tidal_co2_marquette
+  ) %>% 
+  mutate(
+    et_co2_change = pre_unprone - pre_prone
+  )%>% 
+  rename(
+    'etco2_pre_prone' = 'pre_prone',
+    'etco2_pre_unprone' = 'pre_unprone'
+  )
+
+prone_etco2_response$id_col <- 1:nrow(prone_etco2_response) # adds unique col for later joining
 
 # =================================================================================
 
 ## amalgamate the dataframes
 # 1 - prone_vr_response
 # 2 - prone_pfr_response
-# 3 - prone_aA_response
+# 3 - prone_aa_grad_response
 # 4 - prone_oxy_factor_response
-# 5 - pa_o2_response
+# 5 - prone_pao2_response
+# 6 - prone_fio2_response
+# 7 - prone_paw_response
+# 8 - prone_hb_response
+# 9 - prone_sao2_response
+# 10 - prone_pa_co2_response
+# 11 - prone_etco2_response
 
 indices_response <- right_join(
   x = prone_pfr_response,
@@ -1589,29 +1758,78 @@ indices_response <- right_join(
 # join aa table 
 indices_response <- right_join(
   x = indices_response,
-  y = prone_aA_response[, 5:8],
+  y = prone_aa_grad_response[, 4:7],
   by = 'id_col'
   )
 
 # join oxy_factor table 
 indices_response <- right_join(
   x = indices_response,
-  y = prone_oxy_factor_response[, 5:8],
+  y = prone_oxy_factor_response[, 4:7],
   by = 'id_col'
   )
 
 # join pa_o2 table 
 indices_response <- right_join(
   x = indices_response,
-  y = pa_o2_response[, 5:8],
+  y = prone_pao2_response[, 4:7],
   by = 'id_col'
   )
+
+# join fio2 table 
+indices_response <- right_join(
+  x = indices_response,
+  y = prone_fio2_response[, 4:7],
+  by = 'id_col'
+  )
+
+# join paw table 
+indices_response <- right_join(
+  x = indices_response,
+  y = prone_paw_response[, 4:7],
+  by = 'id_col'
+  )
+
+# join hb table 
+indices_response <- right_join(
+  x = indices_response,
+  y = prone_hb_response[, 4:7],
+  by = 'id_col'
+  )
+
+# join sao2 table 
+indices_response <- right_join(
+  x = indices_response,
+  y = prone_sao2_response[, 4:7],
+  by = 'id_col'
+  )
+
+# join paco2 table 
+indices_response <- right_join(
+  x = indices_response,
+  y = prone_pa_co2_response[, 4:7],
+  by = 'id_col'
+  )
+
+# join etco2 table 
+indices_response <- right_join(
+  x = indices_response,
+  y = prone_pa_co2_response[, 4:7],
+  by = 'id_col'
+  )
+
 
 # tidy up
 rm(
   prone_pfr_response,
   prone_vr_response,
-  prone_aA_response,
+  prone_aa_grad_response,
+  prone_etco2_response,
+  prone_fio2_response,
+  prone_hb_response,
+  prone_pa_co2_response,
+  prone_pao2_response,
+  prone_paw_response,
   prone_oxy_factor_response,
   cdyn_prone_supine,
   dc_median_prone,
