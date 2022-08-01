@@ -109,6 +109,7 @@ untidy_tibble <- filter(untidy_tibble,
                           untidy_tibble$`Parameter Name` != 'GCS Motor Response' &
                           untidy_tibble$`Parameter Name` != 'GCS Verbal Response' &
                           untidy_tibble$`Parameter Name` != 'Speech' &
+                          untidy_tibble$`Parameter Name` != 'Diet Type' &
                           #untidy_tibble$`Parameter Name` != 'PB Spontaneous  Type' &
                           #untidy_tibble$`Parameter Name` != 'PB Mandatory Mode Type' &
                           untidy_tibble$`Parameter Name` != 'O2 Administration mode' )
@@ -355,7 +356,65 @@ vent_variables <- c('time',
                     'set_pressure_support_above_peep_s',
                     'set_pressure_trigger_s',
                     'set_rate_cmv_or_simv',
-                    'set_tidal_volume_servo' # ============ DRAGER
+                    'set_tidal_volume_servo',   # ============ AVEA
+                    'exhalation_time_a',
+                    'expired_minute_volume_measured_a',
+                    'expired_tidal_volume_measured_avea',
+                    'mean_airway_pressure_measured_a',
+                    'peak_pressure_measured_a',
+                    'pressure_support_a',
+                    'respiratory_rate_measured_a',
+                    'set_bias_flow_advanced_a',
+                    'set_fi_o2_a',
+                    'set_flow_trigger_a',
+                    'set_peak_flow_a',
+                    'set_peep_a',
+                    'set_pressure_trigger_advanced_a',
+                    'set_respiratory_rate_a',
+                    'set_tidal_volume_a',
+                    'viasys_avea_modes',
+                    'total_respioratory_rate',
+                    'set_time_high', # ============ RESPIRONICS
+                    'respironics_mode',
+                    'bi_pap_vt',
+                    'measured_cpap_respironics',
+                    'set_breath_rate_respironics',
+                    'set_ipap_rise_time_respironics',
+                    'set_o2_percent_respironics',
+                    'total_rr_respironics', # ============ DRAGER
+                    'drager_modes',
+                    'dynamic_characteristics_d',
+                    'expiratory_tidal_volume_d',
+                    'i_e_e_part',
+                    'i_e_e_part_measured',
+                    'i_e_i_part',
+                    'i_e_i_part_measured',
+                    'inspiratory_tidal_volume_d',
+                    'inspiratory_time_d',
+                    'leakage_rel_d',
+                    'mean_airway_pressure_d',
+                    'measured_peep_d',
+                    'measured_respiratory_rate_total_d',
+                    'minimum_airway_pressure_d',
+                    'minute_volume_d',
+                    'peak_inspiratory_pressure_measured_d',
+                    'plateau_airway_pressure_d',
+                    'resistance_d',
+                    'set_fraction_inspired_oxygen_d',
+                    'set_peep_d',
+                    'set_respiratory_rate_d',
+                    'set_tv_d',
+                    'slope_d',
+                    'inspiratory_pressure_limit_d',
+                    'set_pressure_support_d',
+                    'aprv_high_pressure',
+                    'aprv_high_time',
+                    'aprv_low_pressure',
+                    'aprv_low_time',
+                    'drager_secondary_modes',
+                    'rapid_shallow_breathing_index_d',
+                    'intrinsic_peep'
+
 )
 
 vent_tibble <- tibble(observation = tidy_tibble$observation)
