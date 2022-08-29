@@ -106,13 +106,21 @@ untidy_tibble <- filter(untidy_tibble,
 # Remove other parameters that are causing an issue with coercion to lists
 untidy_tibble <- filter(untidy_tibble,
                         untidy_tibble$`Parameter Name` != 'GCS Eye Response' &
-                          untidy_tibble$`Parameter Name` != 'GCS Motor Response' &
-                          untidy_tibble$`Parameter Name` != 'GCS Verbal Response' &
-                          untidy_tibble$`Parameter Name` != 'Speech' &
-                          untidy_tibble$`Parameter Name` != 'Diet Type' &
-                          #untidy_tibble$`Parameter Name` != 'PB Spontaneous  Type' &
-                          #untidy_tibble$`Parameter Name` != 'PB Mandatory Mode Type' &
-                          untidy_tibble$`Parameter Name` != 'O2 Administration mode' )
+                        untidy_tibble$`Parameter Name` != 'GCS Motor Response' &
+                        untidy_tibble$`Parameter Name` != 'GCS Verbal Response' &
+                        untidy_tibble$`Parameter Name` != 'Speech' &
+                        untidy_tibble$`Parameter Name` != 'Diet Type' &
+                        untidy_tibble$`Parameter Name` != 'CT Pupil size L' &
+                        untidy_tibble$`Parameter Name` != 'CT Pupil size R' &
+                        untidy_tibble$`Parameter Name` != 'Current Insulin Rate' &
+                        untidy_tibble$`Parameter Name` != 'L Pupil Reaction' &
+                        untidy_tibble$`Parameter Name` != 'R Pupil Reaction' &
+                        untidy_tibble$`Parameter Name` != 'Inotropic/Vasoactive Agents in Progress' &
+                        untidy_tibble$`Parameter Name` != 'LeftLegT°' &
+                        untidy_tibble$`Parameter Name` != 'RightLegT°' &
+                        #untidy_tibble$`Parameter Name` != 'PB Spontaneous  Type' &
+                        #untidy_tibble$`Parameter Name` != 'PB Mandatory Mode Type' &
+                        untidy_tibble$`Parameter Name` != 'O2 Administration mode' )
 #untidy_tibble$`Parameter Name` != 'Summary' )
 
 # Now manipulate the cardiac data independently. The initial pivot gives 
