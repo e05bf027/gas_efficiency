@@ -23,4 +23,123 @@
 #     - admission location
 #     - outcome
 #     - add a patient_id variable
-# 3. write a new file, in a new folder
+# 3. calculate new parameters
+#   a. PF ratio
+#   b. Aa gradient
+#   c. Oxygenation Factor
+#   d. Ventilatory Ratio
+# 4. write a new file, in a new folder
+
+# ===========================================================
+library(tidyverse)
+library(readxl)
+library(writexl)
+
+# get list of files
+path <- '/Users/davidhannon/Documents/02. Medicine/Med_Programming/00. Patient DB/wrangled_outputs'
+xlsx_list <- list.files(path = path, full.names = TRUE)
+rm(path)
+
+# get df of demographics
+path <- '/Users/davidhannon/Documents/02. Medicine/Med_Programming/00. Patient DB/master_reference_lists/master_list_demographics.xlsx'
+demographics <- read_xlsx(path = path)
+rm(path)
+
+
+# create list of desired variables
+ideal_vars <- c('time',
+                'patient_positioning',
+                'patient_positioning_abg',
+                'ph_abg',
+                'pa_o2',
+                'pa_co2',
+                'bicarbonate_abg_a',
+                'lactate_abg',
+                'base_excess_vt',
+                'potassium_abg',
+                'sodium_abg',
+                'ionised_calcium_abg',
+                'anion_gap_abg',
+                'glucose_abg',
+                'total_haemoglobin',
+                'fi_o2',
+                'end_tidal_co2_marquette',
+                'peep',
+                'minute_volume_pb',
+                'resp_rate',
+                'peak_inspiratory_pressure_measured_pb',
+                'peak_inspiratory_pressure_measured_pb.x',
+                'mean_airway_pressure_pb',
+                'minute_volume_expired_s',
+                'peak_inspiratory_pressure_measured_s',
+                'mean_airway_pressure_s',
+                'expired_minute_volume_measured_a',
+                'peak_pressure_measured_a',
+                'mean_airway_pressure_measured_a',
+                'minute_volume_d',
+                'peak_inspiratory_pressure_measured_d',
+                'mean_airway_pressure_d',
+                'plateau_airway_pressure_d',
+                'resistance_d',
+                'heart_rate',
+                'arterial_pressure_systolic',
+                'inotropic_vasoactive_agents_in_progress',
+                'white_cell_count',
+                'neutrophils',
+                'lymphocytes',
+                'c_reactive_protein',
+                'urea',
+                'pcre',
+                'gfr',
+                'haematocrit',
+                'platelet_count',
+                'albumin')
+
+
+demo_vars <- c('patient_id',
+               'gender',
+               'age_years',
+               'height_cm',
+               'weight_kg',
+               'los_days',
+               'adm_location',
+               'apache_ii')
+
+
+# create for loop
+for (i in 1:length(xlsx_list)) {
+  patient_id <- sub('.xlsx', '', basename(xlsx_list[i]))
+  
+  patient_details <- filter(demographics, patient_id == patient_id) %>% 
+    select(patient_id,
+           gender,
+           age_years,
+           height_cm,
+           weight_kg,
+           los_days,
+           apache_ii,
+           adm_location)
+  
+  patient_numbers <- xlsx_list[i] %>% read_xlsx(sheet = 'All_recorded') %>% 
+    select(any_of(ideal_vars))
+  
+  patient_numbers$patient_id <- patient_details$patient_id[patient_details$patient_id == patient_id]
+  patient_numbers$gender <- patient_details$gender[patient_details$patient_id == patient_id]
+  patient_numbers$age_years <- patient_details$age_years[patient_details$patient_id == patient_id]
+  patient_numbers$height_cm <- patient_details$height_cm[patient_details$patient_id == patient_id]
+  patient_numbers$weight_kg <- patient_details$weight_kg[patient_details$patient_id == patient_id]
+  patient_numbers$los_days <- patient_details$los_days[patient_details$patient_id == patient_id]
+  patient_numbers$apache_ii <- patient_details$apache_ii[patient_details$patient_id == patient_id]
+  patient_numbers$adm_location <- patient_details$adm_location[patient_details$patient_id == patient_id]
+  
+  # calculate new vars
+  patient_numbers <- patient_numbers %>% 
+    mutate(pf_ratio = pa_o2 / fi_o2,
+           aa_gradient_pAco2 = ((fi_o2 * (101.3 - 6.3)) - (end_tidal_co2_marquette / 0.8)) - pa_o2,
+           aa_gradient_paco2 = ((fi_o2 * (101.3 - 6.3)) - (pa_co2 / 0.8)) - pa_o2)
+  
+  # write the file
+  path <- sprintf('/Users/davidhannon/Documents/02. Medicine/Med_Programming/00. Patient DB/ai_df/isolated_dfs_aug22/%s.xlsx', patient_id)
+  write_xlsx(x = patient_numbers, path = path, format_headers = T)
+ 
+}
