@@ -5,35 +5,10 @@
 # parameters, and writes a new xlsx file for each patient. This new file
 # will be used to assemble the final df to deploy logistic regression, etc. on
 
-# STEPS:
-# 1. select folder containing .xlsx files of interest
-# 2. open each file and process it by isolating
-#   a. GENERAL
-#     - observation time (? time since admission better)
-#     - patient position
-#     - abg positioning
-#   b. RESPIRATORY
-#     - ABG values
-#     - Ventilator values (fio2, MV, Paw, peak pressure, etco2, peep, peak flow)
-#   c. CARDIOVASCULAR
-#     - HR
-#     - is on vasopressors
-#   d. DEMOGRAPHICS
-#     - age, height, weight (NB deal with height presence/absence)
-#     - admission location
-#     - outcome
-#     - add a patient_id variable
-# 3. calculate new parameters
-#   a. PF ratio
-#   b. Aa gradient
-#   c. Oxygenation Factor
-#   d. Ventilatory Ratio
-# 4. write a new file, in a new folder
-
-# ===========================================================
 library(tidyverse)
 library(readxl)
 library(writexl)
+library(lubridate)
 
 # get list of files
 path <- '/Users/davidhannon/Documents/02. Medicine/Med_Programming/00. Patient DB/wrangled_outputs'
@@ -106,6 +81,9 @@ demo_vars <- c('patient_id',
                'apache_ii')
 
 
+patient_numbers <- tibble()
+
+
 # create for loop
 for (i in 1:length(xlsx_list)) {
   patient_id <- sub('.xlsx', '', basename(xlsx_list[i]))
@@ -138,8 +116,27 @@ for (i in 1:length(xlsx_list)) {
            aa_gradient_pAco2 = ((fi_o2 * (101.3 - 6.3)) - (end_tidal_co2_marquette / 0.8)) - pa_o2,
            aa_gradient_paco2 = ((fi_o2 * (101.3 - 6.3)) - (pa_co2 / 0.8)) - pa_o2)
   
+  # add 'time since admission' var
+  patient_numbers <- patient_numbers %>% 
+    mutate(time_since_adm_days = (as.numeric(time) - as.numeric(time[1])) / 86400)
+  patient_numbers$time_since_adm_days <- round(patient_numbers$time_since_adm_days, 2)
+  
+  patient_numbers$prone_or_supine <- NA
+  patient_numbers$proning_session <- NA
+  
+  patient_numbers <- patient_numbers %>% 
+    relocate(patient_id) %>% 
+    relocate(proning_session, .after = patient_id) %>% 
+    relocate(prone_or_supine, .after = proning_session) %>% 
+    relocate(time_since_adm_days, .after = prone_or_supine)
+  
+  patient_numbers <- bind_rows(patient_numbers, patient_numbers)
+  
   # write the file
-  path <- sprintf('/Users/davidhannon/Documents/02. Medicine/Med_Programming/00. Patient DB/ai_df/isolated_dfs_aug22/%s.xlsx', patient_id)
+  path <- sprintf('/Users/davidhannon/Documents/02. Medicine/Med_Programming/00. Patient DB/ai_df/isolated_dfs/%s.xlsx', patient_id)
   write_xlsx(x = patient_numbers, path = path, format_headers = T)
- 
+
 }
+
+# tidy up
+rm(list = ls())
